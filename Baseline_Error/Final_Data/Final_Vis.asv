@@ -1,0 +1,181 @@
+clear; clc; close all;
+%% 1. Horizontal Error Plot
+T = readtable("data.xlsx", 'Sheet', 'Hor_Error');
+Hor_threshold = 0.1;
+Ver_threshold = 0.2;
+Pos_threshold = sqrt(Hor_threshold^2 + Ver_threshold^2);
+figure; 
+unique_networks = unique(T.Hor_Network);
+num_networks = length(unique_networks);
+t = tiledlayout('flow', 'TileSpacing', 'compact', 'Padding', 'compact');
+title(t, 'Network별 Baseline에 따른 Horizontal Error', 'FontSize', 14);
+min_baseline = min(T.Hor_Baseline);
+max_baseline = max(T.Hor_Baseline);
+padding = (max_baseline - min_baseline) * 0.05;
+x_lims = [min_baseline - padding, max_baseline + padding];
+y_lims_hor = [0, max(T.Hor_Error) * 1.1]; % Y축 범위 고정용
+for i = 1:num_networks
+    current_net_id = unique_networks(i);
+    idx = (T.Hor_Network == current_net_id);
+    current_baseline = T.Hor_Baseline(idx);
+    current_error = T.Hor_Error(idx);
+    
+    ax = nexttile;
+    
+    % --- 임계값 기준으로 색상 분리 ---
+    threshold = Hor_threshold;
+    idx_above = (current_error > threshold);
+    idx_below = (current_error <= threshold);
+    
+    % 임계값 이하 (파란색)
+    stem(ax, current_baseline(idx_below), current_error(idx_below), 'filled', 'Color', 'b', 'MarkerFaceColor', 'b', 'MarkerSize', 4);
+    hold(ax, 'on');
+    
+    % 임계값 초과 (빨간색)
+    stem(ax, current_baseline(idx_above), current_error(idx_above), 'filled', 'Color', 'r', 'MarkerFaceColor', 'r', 'MarkerSize', 4);
+    hold(ax, 'off');
+    
+    title(ax, sprintf('Network %d (n=%d)', current_net_id, length(current_error)));
+    xlabel(ax, 'Hor Baseline');
+    ylabel(ax, 'Hor Error [m]'); 
+    grid on;
+    xlim(ax, x_lims);
+    ylim(ax, y_lims_hor); % Y축 범위 통일
+    yline(ax, threshold, '--k', 'LineWidth', 1.5); % 검은색 점선
+end
+%% 2. Vertical Error Plot (절대값 적용 및 색상 분리)
+T1 = readtable("data.xlsx",'Sheet','Ver_Error');
+figure;
+unique_networks = unique(T1.Ver_Network);
+num_networks = length(unique_networks);
+t = tiledlayout('flow', 'TileSpacing', 'compact', 'Padding', 'compact');
+title(t, 'Network별 Baseline에 따른 Vertical Error (Absolute)', 'FontSize', 14);
+min_baseline = min(T1.Ver_Baseline);
+max_baseline = max(T1.Ver_Baseline);
+padding = (max_baseline - min_baseline) * 0.05;
+x_lims = [min_baseline - padding, max_baseline + padding];
+% 절대값 기준으로 Y축 최대값 계산
+y_lims_ver = [0, max(abs(T1.Ver_Error)) * 1.1];
+for i = 1:num_networks
+    current_net_id = unique_networks(i);
+    idx = (T1.Ver_Network == current_net_id);
+    current_baseline = T1.Ver_Baseline(idx);
+    
+    % --- [수정] Vertical Error는 절대값(abs)을 씌움 ---
+    current_error = abs(T1.Ver_Error(idx));
+    
+    ax = nexttile;
+    
+    % --- [추가] 임계값 기준으로 색상 분리 ---
+    threshold = Ver_threshold;
+    idx_above = (current_error > threshold);
+    idx_below = (current_error <= threshold);
+    
+    % 임계값 이하 (파란색)
+    stem(ax, current_baseline(idx_below), current_error(idx_below), 'filled', 'Color', 'b', 'MarkerFaceColor', 'b', 'MarkerSize', 4);
+    hold(ax, 'on');
+    
+    % 임계값 초과 (빨간색)
+    stem(ax, current_baseline(idx_above), current_error(idx_above), 'filled', 'Color', 'r', 'MarkerFaceColor', 'r', 'MarkerSize', 4);
+    hold(ax, 'off');
+    % --- 수정 끝 ---
+    
+    title(ax, sprintf('Network %d (n=%d)', current_net_id, length(current_error)));
+    xlabel(ax, 'Ver Baseline');
+    ylabel(ax, 'Ver Error [m] (abs)'); % 절대값임을 표시
+    grid on;
+    xlim(ax, x_lims);
+    ylim(ax, y_lims_ver); % Y축 범위 통일
+    yline(ax, threshold, '--k', 'LineWidth', 1.5); % 검은색 점선
+end
+%% 3. Position Error Plot (컴포넌트 기준 색상 분리)
+T2 = readtable("data.xlsx",'Sheet','Pos_Error');
+
+% [!!!] T2 테이블(Pos_Error 시트)에 'Hor_Error'와 'Ver_Error' 열이 있는지 확인
+if ~all(ismember(["Hor_Error", "Ver_Error"], T2.Properties.VariableNames))
+    error("스크립트 오류: 'Pos_Error' 시트(T2)에 'Hor_Error' 및/또는 'Ver_Error' 열이 없습니다. 요청하신 조건으로 색상을 구분할 수 없습니다.");
+end
+
+figure;
+unique_networks = unique(T2.Pos_Network);
+num_networks = length(unique_networks);
+t = tiledlayout('flow', 'TileSpacing', 'compact', 'Padding', 'compact');
+title(t, 'Network별 Baseline에 따른 Position Error', 'FontSize', 14);
+min_baseline = min(T2.Pos_Baseline);
+max_baseline = max(T2.Pos_Baseline);
+padding = (max_baseline - min_baseline) * 0.05;
+x_lims = [min_baseline - padding, max_baseline + padding];
+y_lims_pos = [0, max(T2.Pos_Error) * 1.1]; % Y축 범위 고정용
+
+for i = 1:num_networks
+    current_net_id = unique_networks(i);
+    idx = (T2.Pos_Network == current_net_id);
+    
+    % 플로팅할 데이터
+    current_baseline = T2.Pos_Baseline(idx);
+    current_error = T2.Pos_Error(idx); % Y축 값은 Position Error
+    
+    % --- [수정] 색상 구분을 위한 컴포넌트 에러 (T2에서 가져옴) ---
+    current_hor_error = T2.Hor_Error(idx);
+    current_ver_error = T2.Ver_Error(idx);
+    
+    % --- [수정] 임계값 기준 변경 (AND 조건) ---
+    % 조건: (수평 오차 >= 0.1) *그리고* (수직 오차의 절대값 >= 0.2)
+    % Vertical Error는 2번 그래프와 동일하게 절대값(abs) 기준으로 비교
+    idx_above = (current_hor_error >= Hor_threshold) & (abs(current_ver_error) >= Ver_threshold);
+    idx_below = ~idx_above; % 위 조건을 만족하지 않는 나머지
+    
+    ax = nexttile;
+    
+    % 임계값 이하 (파란색)
+    stem(ax, current_baseline(idx_below), current_error(idx_below), 'filled', 'Color', 'b', 'MarkerFaceColor', 'b', 'MarkerSize', 4);
+    hold(ax, 'on');
+    
+    % 임계값 초과 (빨간색)
+    stem(ax, current_baseline(idx_above), current_error(idx_above), 'filled', 'Color', 'r', 'MarkerFaceColor', 'r', 'MarkerSize', 4);
+    hold(ax, 'off');
+    % --- 수정 끝 ---
+    
+    title(ax, sprintf('Network %d (n=%d)', current_net_id, length(current_error)));
+    xlabel(ax, 'Pos Baseline');
+    ylabel(ax, 'Pos Error [m]');
+    grid on;
+    xlim(ax, x_lims);
+    ylim(ax, y_lims_pos); % Y축 범위 통일
+    
+    % Y-Line (기준선)은 원래의 Pos_threshold를 그대로 표시
+    yline(ax, Pos_threshold, '--k', 'LineWidth', 1.5); 
+end
+%%
+% % Create new figure
+load("netRts.mat");
+Hor = readtable("data.xlsx", 'Sheet', 'Horizontal');
+Ver = readtable("data.xlsx", 'Sheet', 'Vertical');
+Pos = readtable("data.xlsx", 'Sheet', 'Position');
+
+figure;
+gx = geoaxes;
+geobasemap(gx, 'topographic')
+hold(gx, 'on')
+geolimits([33 39], [124 132])
+title('NGII NRTK Service Performance Analysis')
+
+% Plot NGII CORS Networks (polygons)
+for k = 1:size(netrts,1)
+    pg = geopolyshape(netrts.LAT(k, [1 2 3 1]), netrts.LON(k, [1 2 3 1]));
+    geoplot(gx, pg, 'k', 'EdgeColor', 'k', 'HandleVisibility', 'off')
+end
+geoplot(table2array(Hor(6,16:18)),table2array(Hor(6,19:21)),'ks','LineWidth',2,'MarkerFaceColor','y'...
+    ,'MarkerSize',8)
+geoplot(Hor.Point_Lat(7),Hor.Point_Lon(7),'b^','MarkerFaceColor','b');
+geoplot(Pos.Point_Lat(4),Pos.Point_Lon(4),'b^','MarkerFaceColor','b');
+geoplot(Pos.Point_Lat(30),Pos.Point_Lon(30),'b^','MarkerFaceColor','b');
+geoplot(Pos.Point_Lat(31),Pos.Point_Lon(31),'b^','MarkerFaceColor','b');
+geoplot(Pos.Point_Lat(32),Pos.Point_Lon(32),'b^','MarkerFaceColor','b');
+geoplot(Pos.Point_Lat(33),Pos.Point_Lon(33),'b^','MarkerFaceColor','b');
+geoplot(Pos.Point_Lat(7),Pos.Point_Lon(7),'k^','LineWidth',1.5,'MarkerFaceColor','c');
+
+
+geoplot(Pos.Point_Lat(10),Pos.Point_Lon(10),'r^','LineWidth',1.5,'MarkerFaceColor','r');
+geoplot(Hor.Point_Lat(6),Hor.Point_Lon(6),'r^','MarkerFaceColor','r');
+geoplot(Hor.Point_Lat(8),Hor.Point_Lon(8),'r^','MarkerFaceColor','r');

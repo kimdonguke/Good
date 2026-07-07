@@ -1,0 +1,21 @@
+clear; clc;
+
+addpath('C:\Users\user\Documents\MATLAB\NavSys_Lab\국토지리원\Src');
+addpath('C:\Users\user\Documents\MATLAB\NavSys_Lab\국토지리원\Src\Reference Code');
+
+load("Final_result.mat");
+
+dataCols = {'Lat','Lon','Alt','East','North','Up'};
+Total = cell(length(dbf_Table),1);
+
+NewNames = {'Point','Network','Service','Point_Lat','Point_Lon','Point_H',...
+    'East_Error','North_Error','Up_Error'};
+for i=1:length(dbf_Table)
+    % Total{i,1} = groupsummary(dbf_Table{i},{'Col1','Col2','Col3'},'mean',dataCols);
+    % Total{i,1}(:,'GroupCount') = [];
+    % Total{i,1}.Properties.VariableNames = NewNames;
+    find(strcmp(Total{i,1}(:,3)))
+end
+
+
+

@@ -1,0 +1,21 @@
+clear; clc; close all;
+
+addpath('C:\Users\user\Documents\MATLAB\NavSys_Lab\국토지리원\Src');
+addpath('C:\Users\user\Documents\MATLAB\NavSys_Lab\국토지리원\Src\Reference Code');
+
+load('netRts.mat');
+MS = readtable('Main_Station.xlsx');
+
+Hor = readtable("data.xlsx",'Sheet',1);
+Vert = readtable("data.xlsx",'Sheet',2);
+Pos = readtable("data.xlsx",'Sheet',3);
+
+figure;
+gx = geoaxes;
+hold on;
+for k = 1:size(netrts,1)
+    pg = geopolyshape(netrts.LAT(k, [1 2 3 1]), netrts.LON(k, [1 2 3 1]));
+    geoplot(gx, pg, 'k', 'EdgeColor', 'k', 'HandleVisibility', 'off')
+end
+
+geoplot(Hor.Station_Lat(1),Hor.Station_Lon(1),'ks','LineWidth',)

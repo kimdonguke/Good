@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell($sp = \"C:\\\\Users\\\\김동욱\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-----Desktop-GNSSLAB-----------------------------\\\\b83829bd-0089-49da-94ab-1309b245fb50\\\\scratchpad\"; $env:PPT_STEP='0'; & matlab -sd $sp -batch \"set\\(0,'DefaultFigureVisible','off'\\); run\\('C:\\\\Users\\\\김동욱\\\\Desktop\\\\GNSSLAB\\\\국토지리정보원_원격감시국\\\\국토지리원_주헌\\\\국토지리원\\\\2차\\\\망최적화\\\\ppt_step_figures.m'\\)\"; Write-Output \"exit=$LASTEXITCODE\")"
+    ]
+  }
+}
