@@ -21,7 +21,12 @@ function [isRef, info] = ilp_area_max(lon, lat, maxBaseKm, boundaryShrink)
     end
     lon = lon(:); lat = lat(:); N = numel(lon);
     tAll = tic;
-    plog(sprintf('[ILP] 시작 N=%d, maxBaseKm=%g, shrink=%g', N, maxBaseKm, boundaryShrink));
+    if isscalar(boundaryShrink)
+        bndDesc = sprintf('shrink=%g', boundaryShrink);
+    else
+        bndDesc = sprintf('외곽 고정 %d개', numel(boundaryShrink));
+    end
+    plog(sprintf('[ILP] 시작 N=%d, maxBaseKm=%g, %s', N, maxBaseKm, bndDesc));
 
     % 투영 좌표 (면적 계산 전용). 토폴로지(외접원/포함/Delaunay)는 파이프라인과 동일하게
     % 원좌표 (lon,lat) 평면 — delaunayTriangulation(lon,lat)과 일치시켜야 feasible 판정이 맞다.
