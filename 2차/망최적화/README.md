@@ -10,7 +10,7 @@
 | `run_pipeline.m` | **통합 파이프라인**: 데이터 → 그리디 → ILP → 비교/인증 → 실무 내보내기 → 지도 2장 + 막대 |
 | `run_ilp_area_max.m` | ILP 단독 + LP 상한 인증 + 실무 내보내기 (`result_ilp.mat` 생성) |
 | `run_greedy_area_max.m` | 그리디 단독 + 수렴 곡선 (`result_greedy.mat` 생성) |
-| `run_validation.m` | **망 타당성 검증 1단계(기하)**: 이전 99국 망 vs 최적망 기하 예측변수 비교 (2단계 = 거리-오차 모델·유계 판정, ref 확정 대기) |
+| `run_validation.m` | **망 타당성 검증**: 1단계 기하 비교 + 2단계 오차 모델(이예빈·박병운 2023, IDOP·MSD) 적용 → 수평/수직 95% 오차·유계 판정 전/후 비교 |
 
 (통합 파이프라인의 파일명이 한글이 아닌 이유: MATLAB 스크립트명은 영문자 시작·영문/숫자/밑줄만 허용 —
 한글 파일명은 `run()` 으로도 실행 불가함을 확인함.)
@@ -30,6 +30,8 @@ ilp_area_max.m ──────────── ILP 엔진 (후보 열거·C
 
 valid_net_wgs84.m ───────── 평가: 유효셀 정확 면적/개수 (WGS84)
 net_geometry.m ──────────── 평가: 오차모델 독립 기하 예측변수 (최근접 기준국 거리·소속셀 기선장·간선 분포)
+idop_msd_model.m ────────── 평가: IDOP·MSD 측위 성능 모델 (이예빈·박병운 2023; 계수 = 논문 표 1·2,
+                            추후 국내 실측 재추정 예정. 반경 150 km, 수평 2DRMS/수직 1.96σ)
 save_net_result.m ───────── 표준 결과 struct R → result_greedy.mat / result_ilp.mat
 export_result_mat.m ─────── result_*.mat → <maxBaseKm>_result.mat (code/name/isRef/lat/lon/height/proj)
 export_assignment.m ─────── result_*.mat → assignment_<method>.csv (배정표 + 전환 목록)
@@ -45,7 +47,8 @@ plots/ ──────────────────── 결과 .mat 
 - `<maxBaseKm>_result.mat` (예: `100_result.mat`) — 관측소 정보 테이블 `stations` (실무용)
 - `assignment_ilp.csv` — 역할 배정표 (RINEX, role, lat, lon)
 - `stats_result.csv` — plots/run_stats.m 이 생성하는 통계표
-- `validation_geometry.mat` / `_summary.txt` / `.png` — run_validation.m 의 기하 비교 결과 (2단계 오차 모델이 재사용)
+- `validation_geometry.mat` / `_summary.txt` / `.png` — run_validation.m 1단계: 기하 비교 결과
+- `validation_error.{mat,png}` / `_summary.txt` / `_map.png` / `_monitors.csv` — run_validation.m 2단계: 오차 모델 전/후 비교 (유계: 수평 95% 5 cm / 수직 95% 10 cm)
 
 ## 참고 (legacy, 현재 파이프라인 미사용)
 
