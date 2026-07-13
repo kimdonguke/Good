@@ -158,14 +158,22 @@ fprintf('검증 1단계(기하) 완료\n');
 %   평균 정확도는 예측불가(150 km 내 <3국)·100 cm 이상 특이지점 제외.
 HOR_LIM = 5; VER_LIM = 10; OUT_LIM = 100;   % [cm]
 
-fprintf('[2단계] 오차 모델 적용 중 (격자 %d점 + 감시국 %d점) x 2망...\n', numel(glon), nM);
-EoldG = idop_msd_model(lonAll, latAll, glon, glat);
-EnewG = idop_msd_model(lonAll(isRef), latAll(isRef), glon, glat);
+% 기준국 선택 규칙 3종: 논문 규칙(주 지표) + VRS 설계 정합 규칙 2종
+modes     = {'radius150', 'tri', 'tri1ring'};
+modeLabel = {'반경 150 km (논문 규칙)', '들로네 삼각형 n=3 (설계 정합)', '삼각형+델로네 인접국 (VRS 셀 유사)'};
+fprintf('[2단계] 오차 모델 적용 중 (격자 %d점 x 2망 x %d규칙 + 감시국 %d점)...\n', ...
+    numel(glon), numel(modes), nM);
+Eo = cell(1,numel(modes)); En = Eo; So = Eo; Sn = Eo;
+for m = 1:numel(modes)
+    Eo{m} = idop_msd_model(lonAll, latAll, glon, glat, modes{m});
+    En{m} = idop_msd_model(lonAll(isRef), latAll(isRef), glon, glat, modes{m});
+    So{m} = err_stats(Eo{m}, common, HOR_LIM, VER_LIM, OUT_LIM);
+    Sn{m} = err_stats(En{m}, common, HOR_LIM, VER_LIM, OUT_LIM);
+end
+EoldG = Eo{1};  EnewG = En{1};   % 주 지표(논문 규칙) — 이하 CDF·heat map 에서 사용
+SoldG = So{1};  SnewG = Sn{1};
 EoldM = idop_msd_model(lonAll, latAll, lonMon, latMon);
 EnewM = idop_msd_model(lonAll(isRef), latAll(isRef), lonMon, latMon);
-
-SoldG = err_stats(EoldG, common, HOR_LIM, VER_LIM, OUT_LIM);
-SnewG = err_stats(EnewG, common, HOR_LIM, VER_LIM, OUT_LIM);
 
 % ---- 요약 txt (UTF-8) ----
 sumFile2 = fullfile(thisDir, 'validation_error_summary.txt');
@@ -200,6 +208,19 @@ badH = EnewM.H95cm > HOR_LIM;  badV = EnewM.V95cm > VER_LIM;
 w('  유계 초과 감시국 (최적망): 수평 %d점, 수직 %d점', nnz(badH), nnz(badV));
 if any(badH | badV); w(' — %s', strjoin(namesMon(badH | badV), ', ')); end
 w('\n');
+
+w('\n[3] 기준국 선택 규칙별 격자 지표 (동일 계수, 공통 도메인 %d점)\n', nnz(common));
+w('  규칙                                 망     만족율H%%  만족율V%%  평균H cm  평균V cm  IDOP중앙\n');
+for m = 1:numel(modes)
+    io = common & Eo{m}.valid;  ik = common & En{m}.valid;
+    w('  %-34s 이전  %8.2f  %8.2f  %8.2f  %8.2f  %8.3f\n', modeLabel{m}, ...
+        So{m}.ratioH, So{m}.ratioV, So{m}.avgH, So{m}.avgV, median(Eo{m}.IDOP(io)));
+    w('  %-34s 최적  %8.2f  %8.2f  %8.2f  %8.2f  %8.3f\n', '', ...
+        Sn{m}.ratioH, Sn{m}.ratioV, Sn{m}.avgH, Sn{m}.avgV, median(En{m}.IDOP(ik)));
+end
+w('  주의: 계수 α·β 는 다국 기반(OPUS-RS, 최대 9국) 적합값 — n=3 규칙(tri)은 IDOP 하한\n');
+w('        1/sqrt(3)=0.577, 꼭짓점 1.0 구조라 절대값이 보수적으로 편향되고 축척 불변성 때문에\n');
+w('        망 밀도 변별력도 낮음. 국내 실측 재추정 시 규칙별로 α·β 를 각각 적합할 것.\n');
 fclose(fid);
 fprintf('요약 저장: %s\n', sumFile2);
 
@@ -219,6 +240,9 @@ fprintf('감시국별 예측 오차 저장: %s\n', csvFile);
 E = struct('created', datestr(now), 'HOR_LIM', HOR_LIM, 'VER_LIM', VER_LIM, 'OUT_LIM', OUT_LIM, ...
     'gridOld', EoldG, 'gridNew', EnewG, 'monOld', EoldM, 'monNew', EnewM, ...
     'statsOld', SoldG, 'statsNew', SnewG);
+E.modes = modes;  E.modeLabel = modeLabel;
+E.gridOldByMode = Eo;  E.gridNewByMode = En;
+E.statsOldByMode = So; E.statsNewByMode = Sn;
 save(fullfile(thisDir, 'validation_error.mat'), 'E');
 fprintf('오차 모델 결과 저장: validation_error.mat\n');
 
@@ -268,43 +292,15 @@ end
 title(tl, '수평 95% 예측 오차 [cm] (검정 삼각형 = 기준국)');
 print(fig3, fullfile(thisDir, 'validation_error_map.png'), '-dpng', '-r200');
 
-% ---- figure: 유계 초과 지점 지도 (만족=회색, 수직만 초과=주황, 수평 초과=빨강) ----
+% ---- figure: 유계 초과 지점 지도, 규칙별 (만족=회색, 수직만 초과=주황, 수평 초과=빨강) ----
 % 수직 유계(10 cm)가 수평(5 cm)보다 먼저 걸리는 구조(α_U/α_E ≈ 3.6)라
 % "수평 초과" 지점은 사실상 수평·수직 동시 초과를 의미한다.
-fig4 = figure('Name','validation_error_exceed','Position',[100 100 960 720],'Color','w');
-tl4 = tiledlayout(fig4, 1, 2, 'TileSpacing', 'compact');
-GREY = [0.78 0.78 0.78];  ORNG = [1.0 0.55 0.0];  RED = [0.85 0.1 0.1];
-for k = 1:2
-    if k == 1
-        Ek = EoldG;  okK = okO;  refLatK = latAll;         refLonK = lonAll;
-        netName = '이전 망 (99국)';
-    else
-        Ek = EnewG;  okK = okN;  refLatK = latAll(isRef);  refLonK = lonAll(isRef);
-        netName = sprintf('최적망 (%d국)', nnz(isRef));
-    end
-    sat   = okK & Ek.H95cm <= HOR_LIM & Ek.V95cm <= VER_LIM;
-    vOnly = okK & Ek.H95cm <= HOR_LIM & Ek.V95cm >  VER_LIM;
-    hExc  = okK & Ek.H95cm >  HOR_LIM;
-    nExc  = nnz(vOnly) + nnz(hExc);
-
-    gx = geoaxes(tl4); gx.Layout.Tile = k;
-    try
-        geobasemap(gx, 'grayland');
-    catch
-    end
-    hold(gx, 'on');
-    geoplot(gx, glat(sat),   glon(sat),   '.', 'Color', GREY, 'MarkerSize', 2);
-    geoplot(gx, glat(vOnly), glon(vOnly), '.', 'Color', ORNG, 'MarkerSize', 5);
-    geoplot(gx, glat(hExc),  glon(hExc),  '.', 'Color', RED,  'MarkerSize', 6);
-    geoplot(gx, refLatK, refLonK, 'k^', 'MarkerSize', 3, 'MarkerFaceColor', 'k');
-    geolimits(gx, [33 39], [125 131]);
-    title(gx, sprintf('%s — 초과 %d점 (%.2f%%)', netName, nExc, 100*nExc/nnz(common)));
-    legend(gx, {'유계 만족', sprintf('수직만 초과 (>%g cm)', VER_LIM), ...
-                sprintf('수평 초과 (>%g cm)', HOR_LIM), '기준국'}, 'Location', 'northeast');
+excFile = {'validation_error_exceed.png', 'validation_error_exceed_tri.png', 'validation_error_exceed_ring.png'};
+for m = 1:numel(modes)
+    plot_exceed_fig(fullfile(thisDir, excFile{m}), Eo{m}, En{m}, glat, glon, ...
+        latAll, lonAll, isRef, common, HOR_LIM, VER_LIM, modeLabel{m});
 end
-title(tl4, sprintf('유계 초과 지점 분포 (수평 95%% > %g cm 또는 수직 95%% > %g cm)', HOR_LIM, VER_LIM));
-print(fig4, fullfile(thisDir, 'validation_error_exceed.png'), '-dpng', '-r200');
-fprintf('figure 저장: validation_error.png / validation_error_map.png / validation_error_exceed.png\n');
+fprintf('figure 저장: validation_error.png / validation_error_map.png / %s\n', strjoin(excFile, ' / '));
 
 fprintf('검증 2단계(오차 모델) 완료\n');
 
@@ -335,4 +331,43 @@ function S = err_stats(E, dom, horLim, verLim, outLim)
     S.ratioV = 100 * nnz(v <= verLim) / S.nDomain;
     S.avgH = mean(h(h < outLim));  S.avgV = mean(v(v < outLim));
     S.maxH = max(h);  S.maxV = max(v);
+end
+
+function plot_exceed_fig(figFile, Eold, Enew, glat, glon, latAll, lonAll, isRef, common, horLim, verLim, ruleLabel)
+% 유계 초과 분류 지도 (규칙 공용): 만족=회색, 수직만 초과=주황, 수평 초과=빨강
+    fig = figure('Name', 'validation_error_exceed', 'Position', [100 100 960 720], 'Color', 'w');
+    tl = tiledlayout(fig, 1, 2, 'TileSpacing', 'compact');
+    GREY = [0.78 0.78 0.78];  ORNG = [1.0 0.55 0.0];  RED = [0.85 0.1 0.1];
+    for k = 1:2
+        if k == 1
+            Ek = Eold;  refLatK = latAll;         refLonK = lonAll;
+            netName = sprintf('이전 망 (%d국)', numel(latAll));
+        else
+            Ek = Enew;  refLatK = latAll(isRef);  refLonK = lonAll(isRef);
+            netName = sprintf('최적망 (%d국)', nnz(isRef));
+        end
+        okK   = common & Ek.valid;
+        sat   = okK & Ek.H95cm <= horLim & Ek.V95cm <= verLim;
+        vOnly = okK & Ek.H95cm <= horLim & Ek.V95cm >  verLim;
+        hExc  = okK & Ek.H95cm >  horLim;
+        nExc  = nnz(vOnly) + nnz(hExc);
+
+        gx = geoaxes(tl); gx.Layout.Tile = k;
+        try
+            geobasemap(gx, 'grayland');
+        catch
+        end
+        hold(gx, 'on');
+        % 빈 분류가 있어도 legend 순서가 유지되도록 NaN 점 하나를 덧붙여 그린다
+        geoplot(gx, [glat(sat);   NaN], [glon(sat);   NaN], '.', 'Color', GREY, 'MarkerSize', 2);
+        geoplot(gx, [glat(vOnly); NaN], [glon(vOnly); NaN], '.', 'Color', ORNG, 'MarkerSize', 5);
+        geoplot(gx, [glat(hExc);  NaN], [glon(hExc);  NaN], '.', 'Color', RED,  'MarkerSize', 6);
+        geoplot(gx, refLatK, refLonK, 'k^', 'MarkerSize', 3, 'MarkerFaceColor', 'k');
+        geolimits(gx, [33 39], [125 131]);
+        title(gx, sprintf('%s — 초과 %d점 (%.2f%%)', netName, nExc, 100*nExc/nnz(common)));
+        legend(gx, {'유계 만족', sprintf('수직만 초과 (>%g cm)', verLim), ...
+                    sprintf('수평 초과 (>%g cm)', horLim), '기준국'}, 'Location', 'northeast');
+    end
+    title(tl, sprintf('유계 초과 지점 분포 — %s', ruleLabel));
+    print(fig, figFile, '-dpng', '-r200');
 end

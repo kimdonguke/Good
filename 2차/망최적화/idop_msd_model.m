@@ -1,4 +1,4 @@
-function M = idop_msd_model(refLon, refLat, qLon, qLat)
+function M = idop_msd_model(refLon, refLat, qLon, qLat, mode)
 % IDOP_MSD_MODEL  기준국 배치 기반 사용자 측위 성능 모델 (이예빈·박병운 2023)
 %   출처: 이예빈, 박병운, "해양 및 내륙 정밀 PNT 사용자 성능 최적화를 위한
 %         내륙 기준국 배치 연구", J. Adv. Navig. Technol. 27(4):396-409, 2023.
@@ -7,8 +7,21 @@ function M = idop_msd_model(refLon, refLat, qLon, qLat)
 %   σ_axis = sqrt( (α·IDOP)^2 + (β·MSD)^2 )                     [식 (21)]
 %     IDOP = sqrt(R/Q) : 사용자 기준 상대좌표 평면 최소제곱 (A'A)^-1 의
 %            (3,3) 원소 s33 (식 9-11). R = det(B), Q = det(A'A) — 수치 계산.
+%            (항등식: IDOP^2 = 1/n + 마할라노비스^2/n — 사용국 집합
+%             centroid 에서 최소 1/sqrt(n))
 %     MSD  = mean(d_i^2) [km^2]                                  [식 (20)]
-%   사용 기준국: 질의점 반경 150 km 이내 (논문 3-1절 시뮬레이션 규칙)
+%
+%   mode — 사용 기준국 선택 규칙:
+%     'radius150' (기본) : 반경 150 km 이내 전체 (논문 3-1절 규칙.
+%                          계수 적합 조건과 정합 — 절대값 판정용)
+%     'tri'              : 질의점이 속한 들로네 삼각형 꼭짓점 3국
+%                          (우리 VRS 설계와 정합. 단 n=3 에서는 IDOP 하한이
+%                          1/sqrt(3)=0.577, 꼭짓점에서 1.0 이라 다국 기반
+%                          계수로는 절대값이 보수적으로 편향됨)
+%     'tri1ring'         : 삼각형 꼭짓점 3국 + 그 꼭짓점들과 델로네 간선으로
+%                          연결된 인접국 (VRS 마스터+보조국 셀 구성과 유사,
+%                          망 위상 정합 + n≈10 으로 계수 적합 범위와도 정합)
+%
 %   계수 (표 1, 2 — 미국 CORS 실측 기반. 추후 국내 실측으로 재추정 예정):
 %     α(E,N,U) = 1.8785, 1.8785, 6.7259 [cm]
 %     β(E,N,U) = 0.000032, 0.000032, 0.000078 [cm/km^2]
@@ -17,10 +30,11 @@ function M = idop_msd_model(refLon, refLat, qLon, qLat)
 %
 %   출력 M (struct, 질의점별 열벡터):
 %     .H95cm, .V95cm  수평/수직 95% 예측 오차 [cm] (invalid 는 NaN)
-%     .IDOP, .MSDkm2, .nUsed
-%     .valid          false = 반경 내 기준국 <3 또는 기하 특이 → 예측 불가
-%                     (논문의 "측위 성능 예측 불가 지점" 제외 규칙에 해당)
+%     .IDOP, .MSDkm2, .nUsed, .mode
+%     .valid          false = 사용국 <3 / 기하 특이 / 망 외부(tri 계열)
+%                     → 예측 불가 (논문의 제외 규칙에 해당)
 
+    if nargin < 5; mode = 'radius150'; end
     RADIUS_KM = 150;
     ALPHA = [1.8785 1.8785 6.7259];        % E, N, U [cm]
     BETA  = [0.000032 0.000032 0.000078];  % E, N, U [cm/km^2]
@@ -29,20 +43,49 @@ function M = idop_msd_model(refLon, refLat, qLon, qLat)
     qLon = qLon(:);     qLat = qLat(:);
     nQ = numel(qLon);   nR = numel(refLon);
 
-    % 질의점×기준국 거리 행렬 (WGS84 대원거리)
-    dKm = zeros(nQ, nR);
-    for j = 1:nR
-        dKm(:,j) = deg2km(distance(qLat, qLon, refLat(j), refLon(j)));
+    % 선택 규칙별 사전 준비
+    switch mode
+        case 'radius150'
+            dKm = zeros(nQ, nR);           % 질의점×기준국 거리 (WGS84 대원거리)
+            for j = 1:nR
+                dKm(:,j) = deg2km(distance(qLat, qLon, refLat(j), refLon(j)));
+            end
+        case {'tri', 'tri1ring'}
+            DT = delaunayTriangulation(refLon, refLat);
+            CL = DT.ConnectivityList;
+            ti = pointLocation(DT, qLon, qLat);
+            if strcmp(mode, 'tri1ring')    % 노드별 델로네 인접 목록
+                Ed = edges(DT);
+                adj = cell(nR, 1);
+                for e = 1:size(Ed,1)
+                    adj{Ed(e,1)}(end+1) = Ed(e,2);
+                    adj{Ed(e,2)}(end+1) = Ed(e,1);
+                end
+            end
+        otherwise
+            error('idop_msd_model: 알 수 없는 mode "%s"', mode);
     end
 
     M.H95cm  = nan(nQ,1);  M.V95cm = nan(nQ,1);
     M.IDOP   = nan(nQ,1);  M.MSDkm2 = nan(nQ,1);
     M.nUsed  = zeros(nQ,1);
     M.valid  = false(nQ,1);
+    M.mode   = mode;
 
     for i = 1:nQ
-        sel = dKm(i,:) <= RADIUS_KM;
-        n = nnz(sel);
+        switch mode
+            case 'radius150'
+                sel = find(dKm(i,:) <= RADIUS_KM);
+                d = dKm(i, sel)';
+            otherwise
+                if isnan(ti(i)); continue; end          % 망(볼록껍질) 외부
+                sel = CL(ti(i), :);
+                if strcmp(mode, 'tri1ring')
+                    sel = unique([sel, adj{sel(1)}, adj{sel(2)}, adj{sel(3)}]);
+                end
+                d = deg2km(distance(qLat(i), qLon(i), refLat(sel), refLon(sel)));
+        end
+        n = numel(sel);
         M.nUsed(i) = n;
         if n < 3; continue; end
 
@@ -57,7 +100,7 @@ function M = idop_msd_model(refLon, refLat, qLon, qLat)
         if R <= 0 || Q <= 0; continue; end            % 일직선 배치 등 특이
 
         idop = sqrt(R/Q);                             % 식 (9)
-        msd  = mean(dKm(i,sel).^2);                   % 식 (20)
+        msd  = mean(d(:).^2);                         % 식 (20)
         sig  = sqrt((ALPHA*idop).^2 + (BETA*msd).^2); % 식 (21), [cm] E/N/U
 
         M.IDOP(i) = idop;  M.MSDkm2(i) = msd;

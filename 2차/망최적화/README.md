@@ -31,7 +31,9 @@ ilp_area_max.m ──────────── ILP 엔진 (후보 열거·C
 valid_net_wgs84.m ───────── 평가: 유효셀 정확 면적/개수 (WGS84)
 net_geometry.m ──────────── 평가: 오차모델 독립 기하 예측변수 (최근접 기준국 거리·소속셀 기선장·간선 분포)
 idop_msd_model.m ────────── 평가: IDOP·MSD 측위 성능 모델 (이예빈·박병운 2023; 계수 = 논문 표 1·2,
-                            추후 국내 실측 재추정 예정. 반경 150 km, 수평 2DRMS/수직 1.96σ)
+                            추후 국내 실측 재추정 예정. 수평 2DRMS/수직 1.96σ)
+                            기준국 선택 규칙 3종: radius150(논문·주지표) / tri(설계 정합 n=3,
+                            계수 미보정 시 절대값 편향+망밀도 변별력 없음) / tri1ring(VRS 셀 유사, 권장 대안)
 save_net_result.m ───────── 표준 결과 struct R → result_greedy.mat / result_ilp.mat
 export_result_mat.m ─────── result_*.mat → <maxBaseKm>_result.mat (code/name/isRef/lat/lon/height/proj)
 export_assignment.m ─────── result_*.mat → assignment_<method>.csv (배정표 + 전환 목록)
@@ -48,7 +50,7 @@ plots/ ──────────────────── 결과 .mat 
 - `assignment_ilp.csv` — 역할 배정표 (RINEX, role, lat, lon)
 - `stats_result.csv` — plots/run_stats.m 이 생성하는 통계표
 - `validation_geometry.mat` / `_summary.txt` / `.png` — run_validation.m 1단계: 기하 비교 결과
-- `validation_error.{mat,png}` / `_summary.txt` / `_map.png` / `_exceed.png` / `_monitors.csv` — run_validation.m 2단계: 오차 모델 전/후 비교 (유계: 수평 95% 5 cm / 수직 95% 10 cm; 격자 0.025°)
+- `validation_error.{mat,png}` / `_summary.txt` / `_map.png` / `_exceed{,_tri,_ring}.png` / `_monitors.csv` — run_validation.m 2단계: 오차 모델 전/후 비교, 선택 규칙 3종 (유계: 수평 95% 5 cm / 수직 95% 10 cm; 격자 0.025°)
 
 ## 참고 (legacy, 현재 파이프라인 미사용)
 
