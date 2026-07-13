@@ -48,7 +48,8 @@ dSelf(dSelf < 1e-6) = Inf;              % 자기 자신 제거
 oldSpacingKm = min(dSelf, [], 2);
 
 %% 3) 서비스 영역 격자 비교 (이전 99국 망 vs 최적망)
-[glon, glat] = meshgrid(125:0.05:131, 33:0.05:39);
+GRID_DEG = 0.025;   % 격자 간격 [deg] (약 2.8 km — 논문 0.1도의 4배 조밀)
+[glon, glat] = meshgrid(125:GRID_DEG:131, 33:GRID_DEG:39);
 glon = glon(:); glat = glat(:);
 Gold = net_geometry(lonAll, latAll, glon, glat);            % 이전 망: 99국 전부 기준국
 Gnew = net_geometry(lonAll(isRef), latAll(isRef), glon, glat);
@@ -91,7 +92,7 @@ if any(~Gmon.inTri); w(' (%s)', strjoin(namesMon(~Gmon.inTri), ', ')); end
 w('\n  (참고) 이전 망 주변 국간 간격 [km]: 평균 %.1f / 최대 %.1f — 이전 망에서 이 지점들은 기준국 자체(기선 0)\n\n', ...
     mean(oldSpacingKm), max(oldSpacingKm));
 
-w('[3] 서비스 영역 격자 비교 (공통 도메인 %d점, 0.05도 격자)\n', nnz(common));
+w('[3] 서비스 영역 격자 비교 (공통 도메인 %d점, %g도 격자)\n', nnz(common), GRID_DEG);
 w('  지표: 최근접 기준국 거리 [km]        이전    최적    배율\n');
 w('    평균                            %6.1f  %6.1f  %5.2fx\n', ...
     mean(Gold.nearestKm(common)), mean(Gnew.nearestKm(common)), ...
@@ -176,7 +177,7 @@ w('계수: 논문 표 1·2 (미국 CORS 실측 기반 — 추후 국내 실측 �
 w('95%% 변환: 수평 2DRMS = 2*sqrt(sE^2+sN^2), 수직 = 1.96*sU (논문 미명시 -> 표준 관례)\n');
 w('유계(목표 성능): 수평 95%% <= %g cm, 수직 95%% <= %g cm\n\n', HOR_LIM, VER_LIM);
 
-w('[1] 서비스 영역 격자 (공통 도메인 %d점, 0.05도 — 논문 0.1도보다 조밀)\n', nnz(common));
+w('[1] 서비스 영역 격자 (공통 도메인 %d점, %g도 — 논문 0.1도보다 조밀)\n', nnz(common), GRID_DEG);
 w('                            이전(99국)    최적(%d국)      변화\n', nnz(isRef));
 w('  만족율 수평 [%%]          %8.2f     %8.2f     %+7.2f %%p\n', SoldG.ratioH, SnewG.ratioH, SnewG.ratioH-SoldG.ratioH);
 w('  만족율 수직 [%%]          %8.2f     %8.2f     %+7.2f %%p\n', SoldG.ratioV, SnewG.ratioV, SnewG.ratioV-SoldG.ratioV);
@@ -254,10 +255,10 @@ for k = 1:2
     end
     hold(gx, 'on');
     if k == 1
-        geoscatter(gx, glat(okO), glon(okO), 8, EoldG.H95cm(okO), 'filled');
+        geoscatter(gx, glat(okO), glon(okO), 4, EoldG.H95cm(okO), 'filled');
         geoplot(gx, latAll, lonAll, 'k^', 'MarkerSize', 3, 'MarkerFaceColor', 'k');
     else
-        geoscatter(gx, glat(okN), glon(okN), 8, EnewG.H95cm(okN), 'filled');
+        geoscatter(gx, glat(okN), glon(okN), 4, EnewG.H95cm(okN), 'filled');
         geoplot(gx, latAll(isRef), lonAll(isRef), 'k^', 'MarkerSize', 3, 'MarkerFaceColor', 'k');
     end
     geolimits(gx, [33 39], [125 131]);
@@ -266,7 +267,44 @@ for k = 1:2
 end
 title(tl, '수평 95% 예측 오차 [cm] (검정 삼각형 = 기준국)');
 print(fig3, fullfile(thisDir, 'validation_error_map.png'), '-dpng', '-r200');
-fprintf('figure 저장: validation_error.png / validation_error_map.png\n');
+
+% ---- figure: 유계 초과 지점 지도 (만족=회색, 수직만 초과=주황, 수평 초과=빨강) ----
+% 수직 유계(10 cm)가 수평(5 cm)보다 먼저 걸리는 구조(α_U/α_E ≈ 3.6)라
+% "수평 초과" 지점은 사실상 수평·수직 동시 초과를 의미한다.
+fig4 = figure('Name','validation_error_exceed','Position',[100 100 960 720],'Color','w');
+tl4 = tiledlayout(fig4, 1, 2, 'TileSpacing', 'compact');
+GREY = [0.78 0.78 0.78];  ORNG = [1.0 0.55 0.0];  RED = [0.85 0.1 0.1];
+for k = 1:2
+    if k == 1
+        Ek = EoldG;  okK = okO;  refLatK = latAll;         refLonK = lonAll;
+        netName = '이전 망 (99국)';
+    else
+        Ek = EnewG;  okK = okN;  refLatK = latAll(isRef);  refLonK = lonAll(isRef);
+        netName = sprintf('최적망 (%d국)', nnz(isRef));
+    end
+    sat   = okK & Ek.H95cm <= HOR_LIM & Ek.V95cm <= VER_LIM;
+    vOnly = okK & Ek.H95cm <= HOR_LIM & Ek.V95cm >  VER_LIM;
+    hExc  = okK & Ek.H95cm >  HOR_LIM;
+    nExc  = nnz(vOnly) + nnz(hExc);
+
+    gx = geoaxes(tl4); gx.Layout.Tile = k;
+    try
+        geobasemap(gx, 'grayland');
+    catch
+    end
+    hold(gx, 'on');
+    geoplot(gx, glat(sat),   glon(sat),   '.', 'Color', GREY, 'MarkerSize', 2);
+    geoplot(gx, glat(vOnly), glon(vOnly), '.', 'Color', ORNG, 'MarkerSize', 5);
+    geoplot(gx, glat(hExc),  glon(hExc),  '.', 'Color', RED,  'MarkerSize', 6);
+    geoplot(gx, refLatK, refLonK, 'k^', 'MarkerSize', 3, 'MarkerFaceColor', 'k');
+    geolimits(gx, [33 39], [125 131]);
+    title(gx, sprintf('%s — 초과 %d점 (%.2f%%)', netName, nExc, 100*nExc/nnz(common)));
+    legend(gx, {'유계 만족', sprintf('수직만 초과 (>%g cm)', VER_LIM), ...
+                sprintf('수평 초과 (>%g cm)', HOR_LIM), '기준국'}, 'Location', 'northeast');
+end
+title(tl4, sprintf('유계 초과 지점 분포 (수평 95%% > %g cm 또는 수직 95%% > %g cm)', HOR_LIM, VER_LIM));
+print(fig4, fullfile(thisDir, 'validation_error_exceed.png'), '-dpng', '-r200');
+fprintf('figure 저장: validation_error.png / validation_error_map.png / validation_error_exceed.png\n');
 
 fprintf('검증 2단계(오차 모델) 완료\n');
 

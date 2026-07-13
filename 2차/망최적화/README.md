@@ -48,7 +48,7 @@ plots/ ──────────────────── 결과 .mat 
 - `assignment_ilp.csv` — 역할 배정표 (RINEX, role, lat, lon)
 - `stats_result.csv` — plots/run_stats.m 이 생성하는 통계표
 - `validation_geometry.mat` / `_summary.txt` / `.png` — run_validation.m 1단계: 기하 비교 결과
-- `validation_error.{mat,png}` / `_summary.txt` / `_map.png` / `_monitors.csv` — run_validation.m 2단계: 오차 모델 전/후 비교 (유계: 수평 95% 5 cm / 수직 95% 10 cm)
+- `validation_error.{mat,png}` / `_summary.txt` / `_map.png` / `_exceed.png` / `_monitors.csv` — run_validation.m 2단계: 오차 모델 전/후 비교 (유계: 수평 95% 5 cm / 수직 95% 10 cm; 격자 0.025°)
 
 ## 참고 (legacy, 현재 파이프라인 미사용)
 
