@@ -4,10 +4,40 @@
 %   + 델로네 간선 길이/maxBaseKm 초과 간선 현황
 % 2단계(오차 모델): 이예빈·박병운(2023, J. Adv. Navig. Technol. 27(4)) IDOP·MSD 모델
 %   (idop_msd_model.m)을 두 망에 동일 적용 → 수평/수직 95% 예측 오차,
-%   유계(수평 5 cm / 수직 10 cm, 논문 목표 성능) 판정, 최적화 전/후 정량 비교.
-%   계수는 논문 표 1·2 값 사용 (추후 국내 실측 기반 재추정 예정).
+%   요구 성능(수평 5 cm / 수직 10 cm, 논문 목표 성능) 판정, 최적화 전/후 정량 비교.
 % 출력: 1단계 validation_geometry.{mat,png} + _summary.txt
-%       2단계 validation_error.{mat,png} + _summary.txt + _map.png + _monitors.csv
+%       2단계 validation_error.{mat,png} + _summary.txt + _map.png
+%             + _exceed{,_tri,_ring}.png + _monitors.csv
+%
+% ─── 핵심 해석 노트 ──────────────────────────────────────────────────────
+% [모델 계보] σ_axis = sqrt((α·IDOP)² + (β·MSD)²)
+%   이예빈·박병운(2023) ← 원 모델: Schwarz, Snay & Soler(2009) OPUS-RS 정확도
+%   모델(GPS Solutions 13(2)). 반송파 네트워크 보간 기반이라 NRTK 와 오차 기전 유사.
+% [계수 한계] α·β(논문 표 1·2)는 미국 CORS 실측(다국 사용, 최대 9국) 적합값.
+%   → 절대값(cm)은 "이 모델 기준 예측"이며 국내 FKP/VRS 실측과 다를 수 있음.
+%   → 국내 재추정(논문 식 22, 최소제곱) 시 아래 선택 규칙별로 각각 적합할 것.
+% [95% 변환] 논문에 명시 없음 → 표준 관례 채택: 수평 2DRMS = 2·sqrt(σE²+σN²),
+%   수직 1.96·σU. 보고서/논문 작성 시 변환식을 반드시 명시할 것.
+% [IDOP 해석] IDOP² = 1/n + (사용국 집합 centroid 기준 마할라노비스 거리)²/n.
+%   "최근접 기준국까지의 거리"가 아니라 "사용국 집합 내 중심성"을 재는 지표이며,
+%   기준국 근접 이득(zero-baseline)은 모델에 존재하지 않음.
+% [기준국 선택 규칙 3종]
+%   radius150 : 반경 150 km(논문 규칙). 계수 적합 조건과 정합 → 절대 판정용 주 지표.
+%   tri(n=3)  : 들로네 셀 설계와 정합하나 ① IDOP 축척 불변 → 망 밀도 변별력 없음
+%               (99국/40국 만족율이 사실상 동일), ② 포화 적합(잉여도 0)이라 꼭짓점
+%               IDOP=1 → V95≈13.2 cm 로 기준국 주위 도넛형 초과 발생 — 실제 물리
+%               (기준국 근처가 최상)와 반대인 아티팩트. 판정 지표로 비권장.
+%               (셀 중심 IDOP=1/sqrt(3)=0.577 → V95≈7.6 cm 가 하한)
+%   tri1ring  : 소속 삼각형 + 델로네 인접국(n≈10). VRS 마스터+보조국 셀 구성과
+%               유사(망 위상 정합) + 계수 적합 범위와도 정합 → 설계 정합 지표로 권장.
+% [초과 구역 해석] 요구 성능 초과는 서남해안 앞바다 스트립(볼록껍질 내부이지만
+%   기준국 집합의 편측 바깥 = 외삽 구역, IDOP≳0.75)에 국한. 기존 망에도 존재하던
+%   구조적 취약지로 최적화가 새로 만든 것이 아니며, 내륙·감시국 전 지점은 요구 성능
+%   이내. 해상까지 보장이 필요하면 ILP 에 서남 도서권 기준국 유지 제약 추가 검토.
+% [평가 규칙(논문 3-1절)] 만족율 분모 = 도메인 전체 격자점(예측불가는 불만족으로
+%   집계), 평균 정확도는 예측불가·100 cm 이상 특이지점 제외. 도메인 = 두 망 공통
+%   볼록껍질 내부 격자(해상 포함) — 육지 한정 통계가 필요하면 별도 마스크 적용.
+% ─────────────────────────────────────────────────────────────────────────
 
 clear; clc; close all;
 
@@ -137,15 +167,15 @@ fig = figure('Name', 'validation_geometry', 'Position', [100 100 960 720], 'Colo
 subplot(1,2,1);
 stairs_cdf(Gold.nearestKm(common), 'b-'); hold on;
 stairs_cdf(Gnew.nearestKm(common), 'r-');
-grid on; xlabel('최근접 기준국 거리 [km]'); ylabel('누적확률');
-title('격자점 최근접 기준국 거리 CDF');
-legend({'이전 망 (99국)', sprintf('최적망 (%d국)', nnz(isRef))}, 'Location', 'northeast'); % 표준: legend northeast
+grid on; xlabel('최근접 기준국 거리 [km]'); ylabel('누적 확률');
+title('(a) 최근접 기준국 거리 누적분포');
+legend({'기존 망 (99개소)', sprintf('최적화 망 (%d개소)', nnz(isRef))}, 'Location', 'northeast'); % 표준: legend northeast
 subplot(1,2,2);
 stairs_cdf(Gold.triMeanKm(common), 'b-'); hold on;
 stairs_cdf(Gnew.triMeanKm(common), 'r-');
-grid on; xlabel('소속 삼각형 평균 기선장 [km]'); ylabel('누적확률');
-title('격자점 소속셀 평균 기선장 CDF');
-legend({'이전 망 (99국)', sprintf('최적망 (%d국)', nnz(isRef))}, 'Location', 'northeast');
+grid on; xlabel('소속 삼각형 평균 기선장 [km]'); ylabel('누적 확률');
+title('(b) 소속 삼각형 평균 기선장 누적분포');
+legend({'기존 망 (99개소)', sprintf('최적화 망 (%d개소)', nnz(isRef))}, 'Location', 'northeast');
 print(fig, fullfile(thisDir, 'validation_geometry.png'), '-dpng', '-r200');
 fprintf('figure 저장: validation_geometry.png\n');
 
@@ -153,9 +183,9 @@ fprintf('검증 1단계(기하) 완료\n');
 
 %% ===== 2단계: 오차 모델 적용 (이예빈·박병운 2023, IDOP·MSD) =====
 % 두 망에 동일 모델·동일 계수(논문 표 1·2)를 적용해 전/후 측위 성능을 정량 비교.
-% 유계(목표 성능, 논문 III장): 수평 95% <= 5 cm, 수직 95% <= 10 cm.
+% 요구 성능(논문 III장 목표 성능): 수평 95% <= 5 cm, 수직 95% <= 10 cm.
 % 평가 규칙(논문 3-1절): 만족율 분모 = 도메인 전체 격자점,
-%   평균 정확도는 예측불가(150 km 내 <3국)·100 cm 이상 특이지점 제외.
+%   평균 정확도는 예측불가(사용국 <3 또는 망 외부)·100 cm 이상 특이지점 제외.
 HOR_LIM = 5; VER_LIM = 10; OUT_LIM = 100;   % [cm]
 
 % 기준국 선택 규칙 3종: 논문 규칙(주 지표) + VRS 설계 정합 규칙 2종
@@ -251,17 +281,17 @@ fig2 = figure('Name','validation_error','Position',[100 100 960 720],'Color','w'
 subplot(1,2,1);
 stairs_cdf(EoldG.H95cm(common & EoldG.valid), 'b-'); hold on;
 stairs_cdf(EnewG.H95cm(common & EnewG.valid), 'r-');
-xline(HOR_LIM, 'k--', sprintf('유계 %g cm', HOR_LIM));
-grid on; xlabel('수평 95% 예측 오차 [cm]'); ylabel('누적확률'); xlim([0 20]);
-title('격자점 수평 95% 오차 CDF');
-legend({'이전 망 (99국)', sprintf('최적망 (%d국)', nnz(isRef))}, 'Location', 'southeast');
+xline(HOR_LIM, 'k--', sprintf('요구 성능 %g cm', HOR_LIM));
+grid on; xlabel('수평 측위오차 예측치 (95%) [cm]'); ylabel('누적 확률'); xlim([0 20]);
+title('(a) 수평 측위오차 (95%) 누적분포');
+legend({'기존 망 (99개소)', sprintf('최적화 망 (%d개소)', nnz(isRef))}, 'Location', 'southeast');
 subplot(1,2,2);
 stairs_cdf(EoldG.V95cm(common & EoldG.valid), 'b-'); hold on;
 stairs_cdf(EnewG.V95cm(common & EnewG.valid), 'r-');
-xline(VER_LIM, 'k--', sprintf('유계 %g cm', VER_LIM));
-grid on; xlabel('수직 95% 예측 오차 [cm]'); ylabel('누적확률'); xlim([0 40]);
-title('격자점 수직 95% 오차 CDF');
-legend({'이전 망 (99국)', sprintf('최적망 (%d국)', nnz(isRef))}, 'Location', 'southeast');
+xline(VER_LIM, 'k--', sprintf('요구 성능 %g cm', VER_LIM));
+grid on; xlabel('수직 측위오차 예측치 (95%) [cm]'); ylabel('누적 확률'); xlim([0 40]);
+title('(b) 수직 측위오차 (95%) 누적분포');
+legend({'기존 망 (99개소)', sprintf('최적화 망 (%d개소)', nnz(isRef))}, 'Location', 'southeast');
 print(fig2, fullfile(thisDir, 'validation_error.png'), '-dpng', '-r200');
 
 % ---- figure: 수평 95% 오차 지도 (성능 heat map — colorbar 필요 예외) ----
@@ -269,8 +299,8 @@ fig3 = figure('Name','validation_error_map','Position',[100 100 960 720],'Color'
 tl = tiledlayout(fig3, 1, 2, 'TileSpacing', 'compact');
 okO = common & EoldG.valid;  okN = common & EnewG.valid;
 cl = [0, prctile_local([EoldG.H95cm(okO); EnewG.H95cm(okN)], 99)];
-mapTtl = {sprintf('이전 망 (99국) — 평균 %.2f cm', SoldG.avgH), ...
-          sprintf('최적망 (%d국) — 평균 %.2f cm', nnz(isRef), SnewG.avgH)};
+mapTtl = {sprintf('(a) 기존 망 (99개소) — 평균 %.2f cm', SoldG.avgH), ...
+          sprintf('(b) 최적화 망 (%d개소) — 평균 %.2f cm', nnz(isRef), SnewG.avgH)};
 for k = 1:2
     gx = geoaxes(tl); gx.Layout.Tile = k;
     try
@@ -289,12 +319,12 @@ for k = 1:2
     clim(gx, cl); colorbar(gx);
     title(gx, mapTtl{k});
 end
-title(tl, '수평 95% 예측 오차 [cm] (검정 삼각형 = 기준국)');
+title(tl, '수평 측위오차 예측치 (95%) [cm] — 기준국 선택: 반경 150 km (▲: 기준국)');
 print(fig3, fullfile(thisDir, 'validation_error_map.png'), '-dpng', '-r200');
 
-% ---- figure: 유계 초과 지점 지도, 규칙별 (만족=회색, 수직만 초과=주황, 수평 초과=빨강) ----
-% 수직 유계(10 cm)가 수평(5 cm)보다 먼저 걸리는 구조(α_U/α_E ≈ 3.6)라
-% "수평 초과" 지점은 사실상 수평·수직 동시 초과를 의미한다.
+% ---- figure: 요구 성능 미달 지점 지도, 규칙별 (만족=회색, 수직만 초과=주황, 수평 초과=빨강) ----
+% 수직 한계(10 cm)가 수평(5 cm)보다 먼저 걸리는 구조(α_U/α_E ≈ 3.6)라
+% "수평 한계 초과" 지점은 사실상 수평·수직 동시 초과를 의미한다.
 excFile = {'validation_error_exceed.png', 'validation_error_exceed_tri.png', 'validation_error_exceed_ring.png'};
 for m = 1:numel(modes)
     plot_exceed_fig(fullfile(thisDir, excFile{m}), Eo{m}, En{m}, glat, glon, ...
@@ -341,10 +371,10 @@ function plot_exceed_fig(figFile, Eold, Enew, glat, glon, latAll, lonAll, isRef,
     for k = 1:2
         if k == 1
             Ek = Eold;  refLatK = latAll;         refLonK = lonAll;
-            netName = sprintf('이전 망 (%d국)', numel(latAll));
+            netName = sprintf('(a) 기존 망 (%d개소)', numel(latAll));
         else
             Ek = Enew;  refLatK = latAll(isRef);  refLonK = lonAll(isRef);
-            netName = sprintf('최적망 (%d국)', nnz(isRef));
+            netName = sprintf('(b) 최적화 망 (%d개소)', nnz(isRef));
         end
         okK   = common & Ek.valid;
         sat   = okK & Ek.H95cm <= horLim & Ek.V95cm <= verLim;
@@ -364,10 +394,10 @@ function plot_exceed_fig(figFile, Eold, Enew, glat, glon, latAll, lonAll, isRef,
         geoplot(gx, [glat(hExc);  NaN], [glon(hExc);  NaN], '.', 'Color', RED,  'MarkerSize', 6);
         geoplot(gx, refLatK, refLonK, 'k^', 'MarkerSize', 3, 'MarkerFaceColor', 'k');
         geolimits(gx, [33 39], [125 131]);
-        title(gx, sprintf('%s — 초과 %d점 (%.2f%%)', netName, nExc, 100*nExc/nnz(common)));
-        legend(gx, {'유계 만족', sprintf('수직만 초과 (>%g cm)', verLim), ...
-                    sprintf('수평 초과 (>%g cm)', horLim), '기준국'}, 'Location', 'northeast');
+        title(gx, sprintf('%s — 요구 성능 미달 %d점 (%.2f%%)', netName, nExc, 100*nExc/nnz(common)));
+        legend(gx, {'요구 성능 만족', sprintf('수직 한계 초과 (>%g cm)', verLim), ...
+                    sprintf('수평 한계 초과 (>%g cm)', horLim), '기준국'}, 'Location', 'northeast');
     end
-    title(tl, sprintf('유계 초과 지점 분포 — %s', ruleLabel));
+    title(tl, sprintf('요구 성능 미달 지점 분포 — 기준국 선택: %s', ruleLabel));
     print(fig, figFile, '-dpng', '-r200');
 end
