@@ -3,7 +3,11 @@
 %          load_cors_external.m). 기관(mngr_nm)별로 마커·색을 구분해 표기한다.
 %  - 국토지리정보원 소속국은 우리 위성기준점 계열(기준국/감시국으로 이미 표기)이라
 %    오버레이에서 제외 — "외부" 7개 기관만 표시.
-%  - 빨강 셀 = 외부 상설 감시국이 속한 최적화 망 셀 (우리 로직에 영향 없음, 표시만).
+%  - 셀 활성화 표기(2색):
+%      빨강 = 감시국이 속한 유효셀 (파이프라인 표준 활성화 색과 동일)
+%      초록 = 감시국은 없으나 외부 상설 감시국이 속한 셀 (추가 감시가능 자원,
+%             run_plot_integrated 의 외부 커버리지 색 관례와 동일)
+%    (외부국은 우리 최적화 로직에 영향 없음, 표시만)
 %  - status(ok/missing)는 콘솔 집계로만 보고하고 지도에는 전 지점 표기.
 close all; clear; clc;
 
@@ -52,12 +56,22 @@ agencies = unique(ext.agency);
 tri_ext = pointLocation(DT, ext.lon, ext.lat);
 inNet = ~isnan(tri_ext);
 ext_cells = unique(tri_ext(inNet));
-gray_tri = setdiff((1:size(CL,1))', ext_cells);
+
+% 셀 분류: 감시국 포함(유효셀) / 외부 상설감시국만 포함 / 비활성
+tri_mon = pointLocation(DT, lonM, latM);
+mon_cells = unique(tri_mon(~isnan(tri_mon)));
+extOnly_cells = setdiff(ext_cells, mon_cells);
+gray_tri = setdiff((1:size(CL,1))', union(mon_cells, extOnly_cells));
 
 fprintf('\n===== 외부 상설 감시국 오버레이 (%s 결과) =====\n', R.method);
 fprintf('최적화 망: 기준국 %d, 감시국 %d\n', R.nRef, R.nMon);
-fprintf('외부 상설 감시국 %d개소(%d개 기관) 중 망 내부 %d개소 (셀 %d개), 망 밖 %d개소\n', ...
-        height(ext), numel(agencies), nnz(inNet), numel(ext_cells), nnz(~inNet));
+fprintf('외부 상설 감시국 %d개소(%d개 기관) 중 망 내부 %d개소, 망 밖 %d개소\n', ...
+        height(ext), numel(agencies), nnz(inNet), nnz(~inNet));
+fprintf('셀 활성화: 감시국 유효셀 %d개(빨강) + 외부국만 포함 셀 %d개(초록) = 총 %d개 / 전체 %d개\n', ...
+        numel(mon_cells), numel(extOnly_cells), ...
+        numel(mon_cells)+numel(extOnly_cells), size(CL,1));
+fprintf('  (외부국 포함 셀 %d개 중 %d개는 감시국 유효셀과 중복)\n', ...
+        numel(ext_cells), numel(intersect(ext_cells, mon_cells)));
 for a = agencies'
     m = ext.agency == a;
     fprintf('  %-14s 총 %3d (ok %3d / missing %3d), 망 내부 %3d\n', a, nnz(m), ...
@@ -82,9 +96,16 @@ for i = 1:numel(gray_tri)
     n = CL(gray_tri(i),:);
     geoplot(gx, geopolyshape([latR(n);latR(n(1))],[lonR(n);lonR(n(1))]),'k','EdgeColor','k','HandleVisibility','off');
 end
-for i = 1:numel(ext_cells)
-    n = CL(ext_cells(i),:);
-    geoplot(gx, geopolyshape([latR(n);latR(n(1))],[lonR(n);lonR(n(1))]),'EdgeColor','k','LineWidth',0.5,'FaceColor','r','FaceAlpha',0.3,'HandleVisibility','off');
+hCellMon = gobjects(0);  hCellExt = gobjects(0);
+for i = 1:numel(mon_cells)          % 감시국 유효셀 = 표준 활성화 색(빨강)
+    n = CL(mon_cells(i),:);
+    h = geoplot(gx, geopolyshape([latR(n);latR(n(1))],[lonR(n);lonR(n(1))]),'EdgeColor','k','LineWidth',0.5,'FaceColor','r','FaceAlpha',0.3,'HandleVisibility','off');
+    if i == 1; hCellMon = h; end
+end
+for i = 1:numel(extOnly_cells)      % 외부 상설감시국만 포함 셀 = 초록 (추가 감시가능)
+    n = CL(extOnly_cells(i),:);
+    h = geoplot(gx, geopolyshape([latR(n);latR(n(1))],[lonR(n);lonR(n(1))]),'EdgeColor','k','LineWidth',0.5,'FaceColor',[0 0.7 0.2],'FaceAlpha',0.3,'HandleVisibility','off');
+    if i == 1; hCellExt = h; end
 end
 E = edges(DT);
 lat_e = [latR(E(:,1)), latR(E(:,2)), NaN(size(E,1),1)]';
@@ -104,7 +125,10 @@ for k = 1:numel(agencies)
         'MarkerEdgeColor','k', 'MarkerFaceColor', agCol(kk,:), 'MarkerSize', 6, 'LineStyle', 'none');
     lbl{2+k} = sprintf('%s (%d개소)', agencies(k), nnz(m));
 end
-legend(gx, hh, lbl, 'Location','northeast');
+cellH = gobjects(0,1);  cellL = {};
+if ~isempty(hCellMon); cellH(end+1,1) = hCellMon; cellL{end+1} = '감시가능 셀 (감시국)'; end
+if ~isempty(hCellExt); cellH(end+1,1) = hCellExt; cellL{end+1} = '추가 감시가능 셀 (외부 상설감시국)'; end
+legend(gx, [hh; cellH], [lbl(:); cellL(:)], 'Location','northeast');
 title(gx, sprintf('최적화 망(기준국 %d·감시국 %d)과 기관별 외부 상설 감시국 %d개소', ...
       R.nRef, R.nMon, height(ext)));
 geolimits(gx, [33 39], [125 132]); hold(gx,'off');

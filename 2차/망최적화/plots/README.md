@@ -10,7 +10,7 @@
 |---|---|
 | `run_stats.m` | 초기/그리디/ILP 3열 통계표 + 4패널 플롯 + `stats_result.csv`(상위 폴더) |
 | `run_plot_integrated.m` | 통합 감시 커버리지 지도 (우리 감시국 빨강 ∪ 타기관 CORS 초록) |
-| `run_plot_cors.m` | 최적화 망 + 외부 상설 감시국(7개 기관, 마커·색 구분) 오버레이 지도 — `Data/CORS_coordinate_최종본.xlsx` 고시 XYZ→LLH 변환 |
+| `run_plot_cors.m` | 최적화 망 + 외부 상설 감시국(7개 기관, 마커·색 구분) 오버레이 지도 — 셀 활성화 2색(빨강=감시국 유효셀, 초록=외부국만 포함 셀), `Data/CORS_coordinate_최종본.xlsx` 고시 XYZ→LLH 변환 |
 | `ppt_step_figures.m` | 그리디 flowchart 단계별 PPT figure (input 1~7, 0=전체) → `../figure_for_ppt/*.png` |
 
 헬퍼(플롯 전용): `load_cors_external.m`(상설 감시국 고시 ECEF→GRS80 LLH 로더 — 손상 XYZ 인
