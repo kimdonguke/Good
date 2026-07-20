@@ -1,5 +1,14 @@
-%% 최적화 망 + 타기관 상시관측소(CORS) 오버레이 — 저장된 결과 로드해서 실행
-%  빨강 셀 = 타기관 CORS가 속한 셀. (타기관 CORS는 우리 로직에 영향 없음, 표시만)
+%% run_plot_cors.m — 최적화 망 + 외부 상설 감시국(기관별) 오버레이
+%  데이터: Data/CORS_coordinate_최종본.xlsx (고시 ECEF X,Y,Z → GRS80 LLH 변환,
+%          load_cors_external.m). 기관(mngr_nm)별로 마커·색을 구분해 표기한다.
+%  - 국토지리정보원 소속국은 우리 위성기준점 계열(기준국/감시국으로 이미 표기)이라
+%    오버레이에서 제외 — "외부" 7개 기관만 표시.
+%  - 셀 활성화 표기(2색):
+%      빨강 = 감시국이 속한 유효셀 (파이프라인 표준 활성화 색과 동일)
+%      초록 = 감시국은 없으나 외부 상설 감시국이 속한 셀 (추가 감시가능 자원,
+%             run_plot_integrated 의 외부 커버리지 색 관례와 동일)
+%    (외부국은 우리 최적화 로직에 영향 없음, 표시만)
+%  - status(ok/missing)는 콘솔 집계로만 보고하고 지도에는 전 지점 표기.
 close all; clear; clc;
 
 % ---- 프로젝트 경로 자동 설정 ----
@@ -25,45 +34,103 @@ if ~isfile(resultFile)
     error(['결과 파일이 없습니다:\n  %s\n먼저 run_ilp_area_max.m (또는 run_greedy_area_max.m)을 실행하세요.'], resultFile);
 end
 Rr = load(resultFile); R = Rr.R;
-lon = R.lon; lat = R.lat; isRef = R.isRef;
+lon = R.lon; lat = R.lat; isRef = logical(R.isRef);
 lonR = lon(isRef);  latR = lat(isRef);
 lonM = lon(~isRef); latM = lat(~isRef);
 DT = delaunayTriangulation(lonR, latR); CL = DT.ConnectivityList;
 
-%% 타기관 상시관측소(CORS) + 셀 배정
-[cors_lat, cors_lon] = cors_stations();
-tri_cors = pointLocation(DT, cors_lon, cors_lat);
-inNet = ~isnan(tri_cors);
-cors_cells = unique(tri_cors(inNet));
-gray_tri = setdiff((1:size(CL,1))', cors_cells);
+%% 외부 상설 감시국 로드 (고시 XYZ → LLH) + 셀 배정
+[C, Raw] = load_cors_external();
 
-fprintf('\n===== 타기관 상시관측소 오버레이 (%s 결과) =====\n', R.method);
+% 변환 검증: xlsx 참고용 Lat/Lon 열과 대조 (있는 행만)
+chk   = ~isnan(Raw.Lat) & ~isnan(Raw.Lon);
+agree = chk & abs(C.lat-Raw.Lat) < 1e-4 & abs(C.lon-Raw.Lon) < 1e-4;   % ~10 m
+subst = C.src == "xlsx_llh";                                            % XYZ 손상 → 참고열 대체
+refBad = chk & ~agree & ~subst;                                         % 참고열 자체 이상 (변환값 사용)
+fprintf('XYZ→LLH(GRS80) 검증: 참고열 일치(<1e-4 deg) %d행 / XYZ 손상→참고열 대체 %d행(%s) / 참고열 이상→변환값 사용 %d행(%s)\n', ...
+    nnz(agree), nnz(subst), strjoin(C.station(subst), ','), ...
+    nnz(refBad), strjoin(C.station(refBad), ','));
+
+ext = C(C.agency ~= "국토지리정보원", :);           % 외부 기관만
+agencies = unique(ext.agency);
+tri_ext = pointLocation(DT, ext.lon, ext.lat);
+inNet = ~isnan(tri_ext);
+ext_cells = unique(tri_ext(inNet));
+
+% 셀 분류: 감시국 포함(유효셀) / 외부 상설감시국만 포함 / 비활성
+tri_mon = pointLocation(DT, lonM, latM);
+mon_cells = unique(tri_mon(~isnan(tri_mon)));
+extOnly_cells = setdiff(ext_cells, mon_cells);
+gray_tri = setdiff((1:size(CL,1))', union(mon_cells, extOnly_cells));
+
+fprintf('\n===== 외부 상설 감시국 오버레이 (%s 결과) =====\n', R.method);
 fprintf('최적화 망: 기준국 %d, 감시국 %d\n', R.nRef, R.nMon);
-fprintf('타기관 CORS %d개 중 망 내부 %d개 (셀 %d개), 망 밖 %d개\n', ...
-        numel(cors_lat), sum(inNet), numel(cors_cells), sum(~inNet));
+fprintf('외부 상설 감시국 %d개소(%d개 기관) 중 망 내부 %d개소, 망 밖 %d개소\n', ...
+        height(ext), numel(agencies), nnz(inNet), nnz(~inNet));
+fprintf('셀 활성화: 감시국 유효셀 %d개(빨강) + 외부국만 포함 셀 %d개(초록) = 총 %d개 / 전체 %d개\n', ...
+        numel(mon_cells), numel(extOnly_cells), ...
+        numel(mon_cells)+numel(extOnly_cells), size(CL,1));
+fprintf('  (외부국 포함 셀 %d개 중 %d개는 감시국 유효셀과 중복)\n', ...
+        numel(ext_cells), numel(intersect(ext_cells, mon_cells)));
+for a = agencies'
+    m = ext.agency == a;
+    fprintf('  %-14s 총 %3d (ok %3d / missing %3d), 망 내부 %3d\n', a, nnz(m), ...
+        nnz(m & ext.status=="ok"), nnz(m & ext.status=="missing"), nnz(m & inNet));
+end
+fprintf('(국토지리정보원 소속 %d개소는 기준국/감시국으로 이미 표기되어 제외)\n', nnz(C.agency=="국토지리정보원"));
 fprintf('===================================================\n\n');
 
-%% 플롯 (geobasemap 지형도)
-figure('Name','최적화 망 + 타기관 CORS','Color','w','Position',[80 80 960 720]);
-gx = geoaxes; geobasemap(gx,'topographic'); hold(gx,'on');
+%% 플롯 (960x720 표준, 기관별 마커·색)
+agMk  = {'v','o','d','p','h','<','>'};                             % 기관별 마커
+agCol = [0.84 0.37 0.00; 0.34 0.71 0.91; 0.00 0.62 0.45; ...      % Okabe-Ito 팔레트
+         0.80 0.47 0.65; 0.90 0.62 0.00; 0.00 0.45 0.70; 0.25 0.25 0.25];
+
+figure('Name','최적화 망 + 외부 상설 감시국','Color','w','Position',[80 80 960 720]);
+gx = geoaxes;
+try
+    geobasemap(gx, 'topographic');
+catch
+end
+hold(gx,'on');
 for i = 1:numel(gray_tri)
     n = CL(gray_tri(i),:);
     geoplot(gx, geopolyshape([latR(n);latR(n(1))],[lonR(n);lonR(n(1))]),'k','EdgeColor','k','HandleVisibility','off');
 end
-for i = 1:numel(cors_cells)
-    n = CL(cors_cells(i),:);
-    geoplot(gx, geopolyshape([latR(n);latR(n(1))],[lonR(n);lonR(n(1))]),'EdgeColor','k','LineWidth',0.5,'FaceColor','r','FaceAlpha',0.3,'HandleVisibility','off');
+hCellMon = gobjects(0);  hCellExt = gobjects(0);
+for i = 1:numel(mon_cells)          % 감시국 유효셀 = 표준 활성화 색(빨강)
+    n = CL(mon_cells(i),:);
+    h = geoplot(gx, geopolyshape([latR(n);latR(n(1))],[lonR(n);lonR(n(1))]),'EdgeColor','k','LineWidth',0.5,'FaceColor','r','FaceAlpha',0.3,'HandleVisibility','off');
+    if i == 1; hCellMon = h; end
+end
+for i = 1:numel(extOnly_cells)      % 외부 상설감시국만 포함 셀 = 초록 (추가 감시가능)
+    n = CL(extOnly_cells(i),:);
+    h = geoplot(gx, geopolyshape([latR(n);latR(n(1))],[lonR(n);lonR(n(1))]),'EdgeColor','k','LineWidth',0.5,'FaceColor',[0 0.7 0.2],'FaceAlpha',0.3,'HandleVisibility','off');
+    if i == 1; hCellExt = h; end
 end
 E = edges(DT);
 lat_e = [latR(E(:,1)), latR(E(:,2)), NaN(size(E,1),1)]';
 lon_e = [lonR(E(:,1)), lonR(E(:,2)), NaN(size(E,1),1)]';
 geoplot(gx, lat_e(:), lon_e(:), 'k-','LineWidth',0.5,'HandleVisibility','off');
-geoplot(gx, latR, lonR, 'ks','MarkerFaceColor','y','MarkerSize',6);
-geoplot(gx, latM, lonM, 'k^','MarkerFaceColor','b','MarkerSize',5);
-geoplot(gx, cors_lat, cors_lon, 'kv','MarkerFaceColor','m','MarkerSize',7);
-legend(gx, {'기준국(Reference)','감시국(Monitor)','타기관 상시관측소(CORS)'}, 'Location','northeast');
-title(gx, sprintf('[%s] 최적화 망 + 타기관 CORS (기준국 %d, 감시국 %d, CORS %d)', ...
-      R.method, R.nRef, R.nMon, numel(cors_lat)));
+
+hh = gobjects(2 + numel(agencies), 1);
+lbl = cell(size(hh));
+hh(1) = geoplot(gx, latR, lonR, 'ks','MarkerFaceColor','y','MarkerSize',6);
+lbl{1} = sprintf('기준국 (%d개소)', R.nRef);
+hh(2) = geoplot(gx, latM, lonM, 'k^','MarkerFaceColor','b','MarkerSize',5);
+lbl{2} = sprintf('감시국 (%d개소)', R.nMon);
+for k = 1:numel(agencies)
+    m = ext.agency == agencies(k);
+    kk = mod(k-1, numel(agMk)) + 1;      % 기관 수가 팔레트를 넘으면 순환
+    hh(2+k) = geoplot(gx, ext.lat(m), ext.lon(m), agMk{kk}, ...
+        'MarkerEdgeColor','k', 'MarkerFaceColor', agCol(kk,:), 'MarkerSize', 6, 'LineStyle', 'none');
+    lbl{2+k} = sprintf('%s (%d개소)', agencies(k), nnz(m));
+end
+cellH = gobjects(0,1);  cellL = {};
+if ~isempty(hCellMon); cellH(end+1,1) = hCellMon; cellL{end+1} = '감시가능 셀 (감시국)'; end
+if ~isempty(hCellExt); cellH(end+1,1) = hCellExt; cellL{end+1} = '추가 감시가능 셀 (외부 상설감시국)'; end
+legend(gx, [hh; cellH], [lbl(:); cellL(:)], 'Location','northeast');
+title(gx, sprintf('최적화 망(기준국 %d·감시국 %d)과 기관별 외부 상설 감시국 %d개소', ...
+      R.nRef, R.nMon, height(ext)));
 geolimits(gx, [33 39], [125 132]); hold(gx,'off');
 
 % ---- PNG 자동 저장 (result_fig) ----
