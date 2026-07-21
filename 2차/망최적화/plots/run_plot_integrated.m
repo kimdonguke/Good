@@ -83,8 +83,8 @@ title(gx, {sprintf('[%s] 통합 감시 커버리지 %.0f km^2 (우리 %.0f + COR
            '빨강=우리 감시국 커버, 초록=타기관 CORS 추가 커버'});
 geolimits(gx, [33 39], [125 132]); hold(gx,'off');
 
-% ---- PNG 자동 저장 (result_fig) ----
-figSave = fullfile(optDir,'result_fig');
+% ---- PNG 자동 저장 (result_fig/04_외부상설감시국) ----
+figSave = fullfile(optDir,'result_fig','04_외부상설감시국');
 if ~isfolder(figSave); mkdir(figSave); end
 drawnow;
 print(gcf, fullfile(figSave, sprintf('integrated_coverage_%s.png', R.method)), '-dpng', '-r200');

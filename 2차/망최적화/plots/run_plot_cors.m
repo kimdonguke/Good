@@ -133,8 +133,8 @@ title(gx, sprintf('최적화 망(기준국 %d·감시국 %d)과 기관별 외부
       R.nRef, R.nMon, height(ext)));
 geolimits(gx, [33 39], [125 132]); hold(gx,'off');
 
-% ---- PNG 자동 저장 (result_fig) ----
-figSave = fullfile(optDir,'result_fig');
+% ---- PNG 자동 저장 (result_fig/04_외부상설감시국) ----
+figSave = fullfile(optDir,'result_fig','04_외부상설감시국');
 if ~isfolder(figSave); mkdir(figSave); end
 drawnow;
 print(gcf, fullfile(figSave, sprintf('cors_overlay_%s.png', R.method)), '-dpng', '-r200');

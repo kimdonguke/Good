@@ -3,6 +3,9 @@
 상위 폴더(`망최적화/`)의 **결과 파일(result_greedy.mat / result_ilp.mat)** 을 로드해서 그림·통계를 만든다.
 → 먼저 `run_pipeline.m`(통합, 둘 다) 또는 `run_greedy_area_max.m` / `run_ilp_area_max.m`(상위 폴더)을 실행해 결과를 저장할 것.
 
+figure 저장 위치: `../result_fig/<작업단위>/` (run_stats → `01_망설계`, run_plot_cors·run_plot_integrated
+→ `04_외부상설감시국`; 분류 기준은 `../result_fig/README.md`).
+
 예외: `plot_net_map.m` 은 결과 파일이 아니라 (lon, lat, isRef)를 직접 받는 **드라이버 공용 지도 함수**
 (표준 규격 960×720, legend northeast, colorbar 없음) — 세 드라이버가 모두 이걸 호출한다.
 
