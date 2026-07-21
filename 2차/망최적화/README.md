@@ -10,7 +10,8 @@
 | `run_pipeline.m` | **통합 파이프라인**: 데이터 → 그리디 → ILP → 비교/인증 → 실무 내보내기 → 지도 2장 + 막대 |
 | `run_ilp_area_max.m` | ILP 단독 + LP 상한 인증 + 실무 내보내기 (`result_ilp.mat` 생성) |
 | `run_greedy_area_max.m` | 그리디 단독 + 수렴 곡선 (`result_greedy.mat` 생성) |
-| `run_validation.m` | **망 타당성 검증**: 1단계 기하 비교 + 2단계 오차 모델(이예빈·박병운 2023, IDOP·MSD) 적용 → 수평/수직 95% 오차·유계 판정 전/후 비교 |
+| `run_validation.m` | **망 타당성 검증**: 1단계 기하 비교 + 2단계 오차 모델(이예빈·박병운 2023, IDOP·MSD) 적용 → 수평/수직 95% 오차·유계 판정 전/후 비교 (2단계는 v2로 대체 중 — 아래) |
+| `run_validation_lsc.m` | **망 타당성 검증 v2 (LSC)**: reference/report.pdf 식(1)의 LSC 예측오차분산 커널(`lsc_model.m`)로 2단계를 대체. 전리층 활동도 시나리오 3종(정온/활동/폭풍) × 규칙 2종(전역 LSC / 들로네 3국 평면내삽) 전/후 비교. 시나리오 계수는 잠정 앵커(국내 LOO 적합 예정) |
 
 (통합 파이프라인의 파일명이 한글이 아닌 이유: MATLAB 스크립트명은 영문자 시작·영문/숫자/밑줄만 허용 —
 한글 파일명은 `run()` 으로도 실행 불가함을 확인함.)
@@ -30,10 +31,15 @@ ilp_area_max.m ──────────── ILP 엔진 (후보 열거·C
 
 valid_net_wgs84.m ───────── 평가: 유효셀 정확 면적/개수 (WGS84)
 net_geometry.m ──────────── 평가: 오차모델 독립 기하 예측변수 (최근접 기준국 거리·소속셀 기선장·간선 분포)
-idop_msd_model.m ────────── 평가: IDOP·MSD 측위 성능 모델 (이예빈·박병운 2023; 계수 = 논문 표 1·2,
-                            추후 국내 실측 재추정 예정. 수평 2DRMS/수직 1.96σ)
-                            기준국 선택 규칙 3종: radius150(논문·주지표) / tri(설계 정합 n=3,
-                            계수 미보정 시 절대값 편향+망밀도 변별력 없음) / tri1ring(VRS 셀 유사, 권장 대안)
+idop_msd_model.m ────────── 평가(legacy): IDOP·MSD 측위 성능 모델 (이예빈·박병운 2023; 계수 = 논문 표 1·2)
+                            한계: IDOP 축척 불변 → 망 밀도 변별력 없음, β·MSD 거리항 사실상 0,
+                            기준국 근방 →0 수렴 없음(도넛) — v2(lsc_model)로 대체, 대조용 보존
+lsc_model.m ─────────────── 평가(v2): LSC 공간이격오차 모델 (reference/report.pdf 식(1))
+                            σ²_pred = C(0) − c'(C+n0·I)⁻¹c. 규칙 2종: full(전역 LSC, BLUP 주지표) /
+                            tri(들로네 3국 barycentric 평면내삽 = FKP/VRS 방송 보정면 정합, σ_full≤σ_tri)
+                            Gaussian 공분산 + ppm 앵커 C0=(0.1·ppm·L)²/2, 너깃 = 국별 독립잡음
+                            시나리오 (ppm, L): 정온(0.5, 150) / 활동(1.5, 60) / 폭풍(4, 30) — 잠정,
+                            국내 적합은 99개소 leave-one-out 잔차로 (C0, L, n0) 추정 예정
 save_net_result.m ───────── 표준 결과 struct R → result_greedy.mat / result_ilp.mat
 export_result_mat.m ─────── result_*.mat → <maxBaseKm>_result.mat (code/name/isRef/lat/lon/height/proj)
 export_assignment.m ─────── result_*.mat → assignment_<method>.csv (배정표 + 전환 목록)
@@ -50,7 +56,8 @@ plots/ ──────────────────── 결과 .mat 
 - `assignment_ilp.csv` — 역할 배정표 (RINEX, role, lat, lon)
 - `stats_result.csv` — plots/run_stats.m 이 생성하는 통계표
 - `validation_geometry.mat` / `_summary.txt` / `.png` — run_validation.m 1단계: 기하 비교 결과
-- `validation_error.{mat,png}` / `_summary.txt` / `_map.png` / `_exceed{,_tri,_ring}.png` / `_monitors.csv` — run_validation.m 2단계: 오차 모델 전/후 비교, 선택 규칙 3종 (유계: 수평 95% 5 cm / 수직 95% 10 cm; 격자 0.025°)
+- `validation_error.{mat,png}` / `_summary.txt` / `_map.png` / `_exceed{,_tri,_ring}.png` / `_monitors.csv` — run_validation.m 2단계(legacy): IDOP·MSD 전/후 비교, 선택 규칙 3종 (유계: 수평 95% 5 cm / 수직 95% 10 cm; 격자 0.025°)
+- `validation_lsc.{mat}` / `_summary.txt` / `_monitors.csv` / `_cdf.png` / `_map.png` / `_exceed.png` / `_scen.png` — run_validation_lsc.m (v2): LSC 모델 시나리오 3종 × 규칙 2종 전/후 비교 (동일 유계·격자)
 
 ## 참고 (legacy, 현재 파이프라인 미사용)
 
