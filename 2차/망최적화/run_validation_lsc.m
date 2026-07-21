@@ -197,6 +197,8 @@ save(fullfile(thisDir, 'validation_lsc.mat'), 'L2');
 fprintf('LSC 결과 저장: validation_lsc.mat\n');
 
 %% 7) figure 1 — CDF (960x720): 시나리오 3종 x 2망, 전역 LSC
+figDir = fullfile(thisDir, 'result_fig', '03_망검증_LSC');   % figure는 작업단위별 하위 폴더에 저장
+if ~isfolder(figDir); mkdir(figDir); end
 BLU = [0.10 0.25 0.75];  RED = [0.85 0.10 0.10];
 ls3 = {':', '-', '--'};                       % 정온 / 활동 / 폭풍
 fig1 = figure('Name','validation_lsc_cdf','Position',[100 100 960 720],'Color','w');
@@ -228,7 +230,7 @@ for pnl = 1:2
     ylabel('누적 확률'); grid on;
     legend(hh, lbl, 'Location', 'southeast');
 end
-print(fig1, fullfile(thisDir, 'validation_lsc_cdf.png'), '-dpng', '-r200');
+print(fig1, fullfile(figDir, 'validation_lsc_cdf.png'), '-dpng', '-r200');
 
 %% 8) figure 2 — 수평 95% 오차 지도 (설계 시나리오, heat map — colorbar 예외)
 Ed_o = Eo{DESIGN,1};  Ed_n = En{DESIGN,1};
@@ -259,10 +261,10 @@ for k = 1:2
 end
 title(tl, sprintf('수평 측위오차 예측치 (95%%) [cm] — 전역 LSC, %s 시나리오 (%.1f ppm, L=%d km)', ...
     SCEN(DESIGN).name, SCEN(DESIGN).ppmEN, SCEN(DESIGN).Lkm));
-print(fig2, fullfile(thisDir, 'validation_lsc_map.png'), '-dpng', '-r200');
+print(fig2, fullfile(figDir, 'validation_lsc_map.png'), '-dpng', '-r200');
 
 %% 9) figure 3 — 요구 성능 미달 지점 지도 (설계 시나리오, 전역 LSC)
-plot_exceed_fig(fullfile(thisDir, 'validation_lsc_exceed.png'), Ed_o, Ed_n, glat, glon, ...
+plot_exceed_fig(fullfile(figDir, 'validation_lsc_exceed.png'), Ed_o, Ed_n, glat, glon, ...
     latAll, lonAll, isRef, common, HOR_LIM, VER_LIM, ...
     sprintf('전역 LSC — %s 시나리오 (%.1f ppm, L=%d km)', SCEN(DESIGN).name, SCEN(DESIGN).ppmEN, SCEN(DESIGN).Lkm));
 
@@ -289,7 +291,7 @@ for pnl = 1:2
     end
 end
 sgtitle(sprintf('전리층 활동도 시나리오별 유계 만족율 — 전역 LSC (공통 도메인 %d점, 잠정 계수)', nnz(common)));
-print(fig4, fullfile(thisDir, 'validation_lsc_scen.png'), '-dpng', '-r200');
+print(fig4, fullfile(figDir, 'validation_lsc_scen.png'), '-dpng', '-r200');
 
 fprintf('figure 저장: validation_lsc_cdf/map/exceed/scen.png\n');
 fprintf('검증 v2(LSC) 완료\n');

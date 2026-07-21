@@ -162,7 +162,9 @@ V = struct('created', datestr(now), 'maxBaseKm', R.maxBaseKm, ...
 save(fullfile(thisDir, 'validation_geometry.mat'), 'V');
 fprintf('기하 결과 저장: validation_geometry.mat\n');
 
-%% 6) 분포 figure (960x720 표준)
+%% 6) 분포 figure (960x720 표준) — figure는 result_fig/02_망검증_IDOP-MSD 에 저장
+figDir = fullfile(thisDir, 'result_fig', '02_망검증_IDOP-MSD');
+if ~isfolder(figDir); mkdir(figDir); end
 fig = figure('Name', 'validation_geometry', 'Position', [100 100 960 720], 'Color', 'w');
 subplot(1,2,1);
 stairs_cdf(Gold.nearestKm(common), 'b-'); hold on;
@@ -176,7 +178,7 @@ stairs_cdf(Gnew.triMeanKm(common), 'r-');
 grid on; xlabel('소속 삼각형 평균 기선장 [km]'); ylabel('누적 확률');
 title('(b) 소속 삼각형 평균 기선장 누적분포');
 legend({'기존 망 (99개소)', sprintf('최적화 망 (%d개소)', nnz(isRef))}, 'Location', 'northeast');
-print(fig, fullfile(thisDir, 'validation_geometry.png'), '-dpng', '-r200');
+print(fig, fullfile(figDir, 'validation_geometry.png'), '-dpng', '-r200');
 fprintf('figure 저장: validation_geometry.png\n');
 
 fprintf('검증 1단계(기하) 완료\n');
@@ -292,7 +294,7 @@ xline(VER_LIM, 'k--', sprintf('요구 성능 %g cm', VER_LIM));
 grid on; xlabel('수직 측위오차 예측치 (95%) [cm]'); ylabel('누적 확률'); xlim([0 40]);
 title('(b) 수직 측위오차 (95%) 누적분포');
 legend({'기존 망 (99개소)', sprintf('최적화 망 (%d개소)', nnz(isRef))}, 'Location', 'southeast');
-print(fig2, fullfile(thisDir, 'validation_error.png'), '-dpng', '-r200');
+print(fig2, fullfile(figDir, 'validation_error.png'), '-dpng', '-r200');
 
 % ---- figure: 수평 95% 오차 지도 (성능 heat map — colorbar 필요 예외) ----
 fig3 = figure('Name','validation_error_map','Position',[100 100 960 720],'Color','w');
@@ -320,14 +322,14 @@ for k = 1:2
     title(gx, mapTtl{k});
 end
 title(tl, '수평 측위오차 예측치 (95%) [cm] — 기준국 선택: 반경 150 km (▲: 기준국)');
-print(fig3, fullfile(thisDir, 'validation_error_map.png'), '-dpng', '-r200');
+print(fig3, fullfile(figDir, 'validation_error_map.png'), '-dpng', '-r200');
 
 % ---- figure: 요구 성능 미달 지점 지도, 규칙별 (만족=회색, 수직만 초과=주황, 수평 초과=빨강) ----
 % 수직 한계(10 cm)가 수평(5 cm)보다 먼저 걸리는 구조(α_U/α_E ≈ 3.6)라
 % "수평 한계 초과" 지점은 사실상 수평·수직 동시 초과를 의미한다.
 excFile = {'validation_error_exceed.png', 'validation_error_exceed_tri.png', 'validation_error_exceed_ring.png'};
 for m = 1:numel(modes)
-    plot_exceed_fig(fullfile(thisDir, excFile{m}), Eo{m}, En{m}, glat, glon, ...
+    plot_exceed_fig(fullfile(figDir, excFile{m}), Eo{m}, En{m}, glat, glon, ...
         latAll, lonAll, isRef, common, HOR_LIM, VER_LIM, modeLabel{m});
 end
 fprintf('figure 저장: validation_error.png / validation_error_map.png / %s\n', strjoin(excFile, ' / '));

@@ -51,13 +51,17 @@ plots/ ──────────────────── 결과 .mat 
 
 ## 출력 파일
 
+**figure 는 전부 `result_fig/` 의 작업 단위별 하위 폴더에 저장** (각 스크립트가 자동 저장,
+분류 기준·목록은 `result_fig/README.md`): `01_망설계` / `02_망검증_IDOP-MSD` / `03_망검증_LSC`
+/ `04_외부상설감시국` / `05_기선상한스윕_70-100km`. 데이터 파일(mat/csv/txt)은 이 폴더에 유지.
+
 - `result_ilp.mat` / `result_greedy.mat` — 표준 결과 struct `R` (좌표·isRef·names·조건·info)
 - `<maxBaseKm>_result.mat` (예: `100_result.mat`) — 관측소 정보 테이블 `stations` (실무용)
 - `assignment_ilp.csv` — 역할 배정표 (RINEX, role, lat, lon)
 - `stats_result.csv` — plots/run_stats.m 이 생성하는 통계표
 - `validation_geometry.mat` / `_summary.txt` / `.png` — run_validation.m 1단계: 기하 비교 결과
-- `validation_error.{mat,png}` / `_summary.txt` / `_map.png` / `_exceed{,_tri,_ring}.png` / `_monitors.csv` — run_validation.m 2단계(legacy): IDOP·MSD 전/후 비교, 선택 규칙 3종 (유계: 수평 95% 5 cm / 수직 95% 10 cm; 격자 0.025°)
-- `validation_lsc.{mat}` / `_summary.txt` / `_monitors.csv` / `_cdf.png` / `_map.png` / `_exceed.png` / `_scen.png` — run_validation_lsc.m (v2): LSC 모델 시나리오 3종 × 규칙 2종 전/후 비교 (동일 유계·격자)
+- `validation_error.mat` / `_summary.txt` / `_monitors.csv` + figure(→ `result_fig/02_망검증_IDOP-MSD/`) — run_validation.m 2단계(legacy): IDOP·MSD 전/후 비교, 선택 규칙 3종 (유계: 수평 95% 5 cm / 수직 95% 10 cm; 격자 0.025°)
+- `validation_lsc.mat` / `_summary.txt` / `_monitors.csv` + figure(→ `result_fig/03_망검증_LSC/`) — run_validation_lsc.m (v2): LSC 모델 시나리오 3종 × 규칙 2종 전/후 비교 (동일 유계·격자)
 
 ## 참고 (legacy, 현재 파이프라인 미사용)
 

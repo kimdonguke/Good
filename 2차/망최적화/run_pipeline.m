@@ -71,20 +71,28 @@ fprintf('ILP 최적성 인증     : %.2f%% (ILP/LP상한, 100%%이면 증명완�
 fprintf('===========================================================\n');
 fprintf('상세 통계(3열 표·기선장 분포): plots/run_stats.m 실행\n\n');
 
-%% 7) 시각화 — 표준 지도 2장 + 면적 비교 막대
-plot_net_map(lon, lat, isRefG, ...
+%% 7) 시각화 — 표준 지도 2장 + 면적 비교 막대 (result_fig/01_망설계 에 자동 저장)
+figDir = fullfile(thisDir, 'result_fig', '01_망설계');
+if ~isfolder(figDir); mkdir(figDir); end
+[fG, ~] = plot_net_map(lon, lat, isRefG, ...
     sprintf('감시가능망 면적 최대화 (그리디) — 기준국 %d, 감시국 %d, %.0f km^2', ...
             sum(isRefG), sum(~isRefG), aG), '그리디 (비교 기준)');
-plot_net_map(lon, lat, isRefI, ...
+[fI, ~] = plot_net_map(lon, lat, isRefI, ...
     sprintf('최적 감시망 구성 (ILP) — 기준국 %d, 감시국 %d, 감시가능 면적 %.0f km^2', ...
             sum(isRefI), sum(~isRefI), aI), 'ILP (전역최적)');
 
-figure('Name','면적 비교','Color','w','Position',[80 80 960 720]);
+fB = figure('Name','면적 비교','Color','w','Position',[80 80 960 720]);
 vals = [aG, aI, infoI.lpBound_km2];
 bar(categorical({'그리디','ILP최적','LP상한'},{'그리디','ILP최적','LP상한'}), vals, 0.5);
 ylabel('감시가능망 면적 (km^2)'); grid on;
 title({'감시가능 면적 비교 — Greedy, ILP, LP 상한', ...
        sprintf('Greedy/ILP = %.1f%%,  ILP/상한 = %.1f%%', 100*aG/aI, 100*aI/infoI.lpBound_km2)});
 text(1:3, vals, compose('%.0f',vals), 'HorizontalAlignment','center','VerticalAlignment','bottom');
+
+drawnow;
+print(fG, fullfile(figDir, 'Greedy_plot.png'), '-dpng', '-r200');
+print(fI, fullfile(figDir, 'ILP_plot.png'), '-dpng', '-r200');
+print(fB, fullfile(figDir, 'area_compare.png'), '-dpng', '-r200');
+fprintf('그림 저장: %s (Greedy_plot / ILP_plot / area_compare)\n', figDir);
 
 fprintf('통합 파이프라인 완료: %.1f s\n', toc(tAll));
