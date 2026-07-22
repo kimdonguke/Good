@@ -41,7 +41,7 @@ Si = net_stats(lon, lat, Ri.isRef,  maxBaseKm);   % ILP
 
 %% 통계 출력 (한글 폭 정렬)
 fprintf('\n===== 망 최적화 결과 통계 (초기 / 그리디 / ILP) =====\n');
-row3('항목','초기(99)','그리디','ILP');
+row3('항목',sprintf('초기(%d)',N),'그리디','ILP');
 fprintf('%s\n', repmat('-',1,64));
 row3('기준국 수',            i2(Sb.nRef),      i2(Sg.nRef),      i2(Si.nRef));
 row3('감시국 수',            i2(Sb.nMon),      i2(Sg.nMon),      i2(Si.nMon));
@@ -77,14 +77,14 @@ tl = tiledlayout(2,2,'TileSpacing','compact','Padding','compact');
 title(tl,sprintf('망 최적화 결과 분석 (초기 / 그리디 / ILP, 초기>%dkm 기선 제외)', maxBaseKm));
 
 nexttile; hold on;   % 기선장 히스토그램
-histogram(Sb.baselines_ex,'BinWidth',10,'FaceColor',[0.4 0.6 0.9],'FaceAlpha',0.45,'DisplayName','초기(99)');
+histogram(Sb.baselines_ex,'BinWidth',10,'FaceColor',[0.4 0.6 0.9],'FaceAlpha',0.45,'DisplayName',sprintf('초기(%d)',N));
 histogram(Sg.baselines_ex,'BinWidth',10,'FaceColor',[0.9 0.5 0.3],'FaceAlpha',0.45,'DisplayName','그리디');
 histogram(Si.baselines_ex,'BinWidth',10,'FaceColor',[0.3 0.7 0.4],'FaceAlpha',0.45,'DisplayName','ILP');
 xline(maxBaseKm,'r--','LineWidth',1.2,'HandleVisibility','off');
 xlabel('기선장 (km)'); ylabel('개수'); title('기선장 분포'); legend('Location','northeast'); grid on; hold off;
 
 nexttile; hold on;   % CDF
-cdfplot_(Sb.baselines_ex,[0.2 0.4 0.8],'초기(99)');
+cdfplot_(Sb.baselines_ex,[0.2 0.4 0.8],sprintf('초기(%d)',N));
 cdfplot_(Sg.baselines_ex,[0.85 0.4 0.15],'그리디');
 cdfplot_(Si.baselines_ex,[0.15 0.6 0.25],'ILP');
 xline(maxBaseKm,'r--','LineWidth',1.2,'HandleVisibility','off');
