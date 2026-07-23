@@ -1,17 +1,21 @@
-function [fig, gx] = plot_net_map(lon, lat, isRef, ttl, figName)
+function [fig, gx] = plot_net_map(lon, lat, isRef, ttl, figName, monOK)
 % PLOT_NET_MAP  최적화 망 표준 지도 (기준국 삼각망 + 유효셀 빨강/무효셀 회색)
-%   [fig, gx] = plot_net_map(lon, lat, isRef, ttl, figName)
+%   [fig, gx] = plot_net_map(lon, lat, isRef, ttl, figName, monOK)
 %   드라이버(run_greedy / run_ilp / 통합파이프라인) 공용 — 표준 규격:
 %   960×720(4:3), legend 지도내 northeast, colorbar 없음, geolimits [33 39]/[125 131].
+%   monOK(선택): 감시 인정 마스크(QC 규칙) — 유효셀(빨강) 판정에만 사용,
+%   마커는 전 감시국 표시. 생략 시 전 감시국 인정(legacy).
 
     if nargin < 5 || isempty(figName); figName = ttl; end
-    isRef = logical(isRef(:));
+    lon = lon(:); lat = lat(:);
+    if nargin < 6 || isempty(monOK); monOK = true(numel(lon),1); end
+    isRef = logical(isRef(:)); monOK = logical(monOK(:));
     lonR = lon(isRef);  latR = lat(isRef);
     lonM = lon(~isRef); latM = lat(~isRef);
 
     DT = delaunayTriangulation(lonR, latR);
     CL = DT.ConnectivityList;
-    ti = pointLocation(DT, lonM, latM); ti = ti(~isnan(ti));
+    ti = pointLocation(DT, lon(~isRef & monOK), lat(~isRef & monOK)); ti = ti(~isnan(ti));
     red_tri  = unique(ti);
     gray_tri = setdiff((1:size(CL,1))', red_tri);
 

@@ -19,23 +19,28 @@ for pIdx = 1:numel(ngiiPaths)
     if isfolder(ngiiPaths{pIdx}); addpath(ngiiPaths{pIdx}); end
 end
 
-%% 1) 데이터 로드 (위성기준점 99개소)
-[lon, lat, names] = load_stations();
+%% 1) 데이터 로드 (최신 고시 위성기준점, stations_ngii.mat)
+[lon, lat, names, Tst] = load_stations();
 
-%% 2) 공통 실험 조건 (net_config.m 단일 소스 — ILP와 항상 동일 조건)
+%% 2) 공통 실험 조건 (net_config.m 단일 소스 — ILP와 항상 동일 조건) + QC 규칙
 cfg = net_config();
 maxBaseKm = cfg.maxBaseKm;
 bnd = outer_ring(lon, lat, cfg.nOuter);   % 명시적 외곽 고정 노드 인덱스
 fprintf('실험 조건: maxBaseKm=%g km, 최외곽 고정 %d개\n', maxBaseKm, numel(bnd));
+qc = qc_rules(Tst, cfg);
+lowB = bnd(~qc.refOK(bnd));
+if ~isempty(lowB)
+    fprintf('경고: 외곽 고정국 중 가용성 미달(구조상 기준국 유지): %s\n', strjoin(names(lowB)', ', '));
+end
 
 %% 3) 그리디 실행
 tG = tic;
-[isRef, info] = greedy_area_max(lon, lat, maxBaseKm, bnd);
+[isRef, info] = greedy_area_max(lon, lat, maxBaseKm, bnd, qc);
 tGreedy = toc(tG);
-[aG, ncG] = valid_net_wgs84(lon, lat, isRef);
+[aG, ncG] = valid_net_wgs84(lon, lat, isRef, qc.monOK);
 
 %% 4) 결과 저장 (plots/·export 가 이 파일만 로드)
-save_net_result(fullfile(thisDir,'result_greedy.mat'), 'greedy', lon, lat, isRef, maxBaseKm, bnd, info, names);
+save_net_result(fullfile(thisDir,'result_greedy.mat'), 'greedy', lon, lat, isRef, maxBaseKm, bnd, info, names, qc.monOK);
 
 %% 5) 요약 출력
 fprintf('\n===== 감시가능망 면적 최대화 (그리디) =====\n');
@@ -50,7 +55,7 @@ fprintf('==========================================\n\n');
 %% 6) 시각화 — 표준 지도 (plots/plot_net_map.m 공용)
 plot_net_map(lon, lat, isRef, ...
     sprintf('감시가능망 면적 최대화 (그리디) — 기준국 %d, 감시국 %d, %.0f km^2', ...
-            sum(isRef), sum(~isRef), aG), '그리디 면적 최대화');
+            sum(isRef), sum(~isRef), aG), '그리디 면적 최대화', qc.monOK);
 
 % 수렴 곡선 (기준국 수 감소 vs 유효면적 증가)
 figure('Name','그리디 수렴 곡선','Color','w','Position',[80 80 960 720]);

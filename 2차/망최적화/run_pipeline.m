@@ -26,29 +26,34 @@ if isempty(which('intlinprog'))
     error('Optimization Toolbox(intlinprog)가 설치되어 있지 않습니다. 설치된 툴박스 확인: ver');
 end
 
-%% 1) 데이터 로드 (위성기준점 99개소)
-[lon, lat, names] = load_stations();
+%% 1) 데이터 로드 (최신 고시 위성기준점, stations_ngii.mat)
+[lon, lat, names, Tst] = load_stations();
 
-%% 2) 공통 실험 조건 (net_config.m 단일 소스)
+%% 2) 공통 실험 조건 (net_config.m 단일 소스) + QC 가용성 규칙
 cfg = net_config();
 maxBaseKm = cfg.maxBaseKm;
 bnd = outer_ring(lon, lat, cfg.nOuter);   % 명시적 외곽 고정 노드 인덱스
 fprintf('실험 조건: maxBaseKm=%g km, 최외곽 고정 %d개, 관측소 %d개\n', ...
         maxBaseKm, numel(bnd), numel(lon));
+qc = qc_rules(Tst, cfg);                  % 가용성(2025-Q4) 기반 설계 규칙 마스크
+lowB = bnd(~qc.refOK(bnd));
+if ~isempty(lowB)
+    fprintf('경고: 외곽 고정국 중 가용성 미달(구조상 기준국 유지): %s\n', strjoin(names(lowB)', ', '));
+end
 
 %% 3) 그리디 (비교 기준)
 tG = tic;
-[isRefG, infoG] = greedy_area_max(lon, lat, maxBaseKm, bnd);
+[isRefG, infoG] = greedy_area_max(lon, lat, maxBaseKm, bnd, qc);
 tGreedy = toc(tG);
-[aG, ncG] = valid_net_wgs84(lon, lat, isRefG);
-save_net_result(fullfile(thisDir,'result_greedy.mat'), 'greedy', lon, lat, isRefG, maxBaseKm, bnd, infoG, names);
+[aG, ncG] = valid_net_wgs84(lon, lat, isRefG, qc.monOK);
+save_net_result(fullfile(thisDir,'result_greedy.mat'), 'greedy', lon, lat, isRefG, maxBaseKm, bnd, infoG, names, qc.monOK);
 
 %% 4) ILP (전역최적)
 tI = tic;
-[isRefI, infoI] = ilp_area_max(lon, lat, maxBaseKm, bnd);
+[isRefI, infoI] = ilp_area_max(lon, lat, maxBaseKm, bnd, qc);
 tILP = toc(tI);
-[aI, ncI] = valid_net_wgs84(lon, lat, isRefI);
-save_net_result(fullfile(thisDir,'result_ilp.mat'), 'ilp', lon, lat, isRefI, maxBaseKm, bnd, infoI, names);
+[aI, ncI] = valid_net_wgs84(lon, lat, isRefI, qc.monOK);
+save_net_result(fullfile(thisDir,'result_ilp.mat'), 'ilp', lon, lat, isRefI, maxBaseKm, bnd, infoI, names, qc.monOK);
 
 %% 5) 실무 내보내기 (ILP 기준)
 export_result_mat(fullfile(thisDir,'result_ilp.mat'));    % 관측소 정보표 <maxBaseKm>_result.mat
@@ -76,10 +81,10 @@ figDir = fullfile(thisDir, 'result_fig', '01_망설계');
 if ~isfolder(figDir); mkdir(figDir); end
 [fG, ~] = plot_net_map(lon, lat, isRefG, ...
     sprintf('감시가능망 면적 최대화 (그리디) — 기준국 %d, 감시국 %d, %.0f km^2', ...
-            sum(isRefG), sum(~isRefG), aG), '그리디 (비교 기준)');
+            sum(isRefG), sum(~isRefG), aG), '그리디 (비교 기준)', qc.monOK);
 [fI, ~] = plot_net_map(lon, lat, isRefI, ...
     sprintf('최적 감시망 구성 (ILP) — 기준국 %d, 감시국 %d, 감시가능 면적 %.0f km^2', ...
-            sum(isRefI), sum(~isRefI), aI), 'ILP (전역최적)');
+            sum(isRefI), sum(~isRefI), aI), 'ILP (전역최적)', qc.monOK);
 
 fB = figure('Name','면적 비교','Color','w','Position',[80 80 960 720]);
 vals = [aG, aI, infoI.lpBound_km2];

@@ -6,4 +6,16 @@ function cfg = net_config()
 
     cfg.maxBaseKm = 100;   % 신설 기선 최대 길이 [km] (초기망의 초과 기선은 grandfather 예외)
     cfg.nOuter    = 13;    % 최외곽 고정 노드 수 (볼록껍질 12 + 동해안 YODK = 13)
+
+    % QC 기반 기준국 선별 규칙 — RsrchMt(2026-07-21, 김주헌) 방식.
+    %  지표 소스 = QC xlsx 'NGII' 시트(RINGO 연간: Availability·MP1/2/5·SLPS),
+    %  stations_ngii.mat 에 조인됨. qc_rules.m 이 마스크/Score 생성 → 그리디/ILP 반영.
+    cfg.qcMinAvailRef = 0.95;  % ① Availability 95% 미만 cut-off (기준국 부적격, x_i=0
+                               %    고정). 외곽 고정국은 스코어링 대상 제외(기준국 유지).
+    cfg.qcMaxSLPS     = 10;    % ② SLPS 임계 초과 추가 제외 — 문서 지침대로 망 재구성
+                               %    반복 비교(스윕)로 경험적 설정. Inf = 비활성.
+    cfg.qcMPRef       = 0.3;   % ③ MP 정규화 기준 [m] (IGS 권고값)
+    cfg.qcScoreA7     = true;  % ④ A7 평균 품질 제약: 선택 기준국 평균 Score >= 후보 평균
+    cfg.qcMinAvailMon = 0.95;  % (문서 외 확장 유지) 감시 인정 하한 — 미달 국은 셀 유효
+                               %  판정에 카운트하지 않음
 end

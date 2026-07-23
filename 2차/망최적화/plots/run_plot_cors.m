@@ -58,7 +58,11 @@ inNet = ~isnan(tri_ext);
 ext_cells = unique(tri_ext(inNet));
 
 % 셀 분류: 감시국 포함(유효셀) / 외부 상설감시국만 포함 / 비활성
-tri_mon = pointLocation(DT, lonM, latM);
+% (QC 감시 인정 마스크 R.monOK 가 있으면 인정 감시국만 유효셀 판정에 사용)
+monOK = true(numel(lon),1);
+if isfield(R, 'monOK'); monOK = logical(R.monOK(:)); end
+lonMv = lon(~isRef & monOK); latMv = lat(~isRef & monOK);
+tri_mon = pointLocation(DT, lonMv, latMv);
 mon_cells = unique(tri_mon(~isnan(tri_mon)));
 extOnly_cells = setdiff(ext_cells, mon_cells);
 gray_tri = setdiff((1:size(CL,1))', union(mon_cells, extOnly_cells));
