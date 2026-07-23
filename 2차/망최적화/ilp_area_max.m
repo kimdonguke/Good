@@ -1,7 +1,7 @@
-function [isRef, info] = ilp_area_max(lon, lat, maxBaseKm, boundaryShrink)
+function [isRef, info] = ilp_area_max(lon, lat, maxBaseKm, boundaryShrink, qc)
 % ILP_AREA_MAX  빈-외접원 ILP로 감시가능망 "면적" 최대화의 전역최적 (골격 ①)
 %
-%   [isRef, info] = ilp_area_max(lon, lat, maxBaseKm, boundaryShrink)
+%   [isRef, info] = ilp_area_max(lon, lat, maxBaseKm, boundaryShrink, qc)
 %
 %   결정변수 x_i∈{0,1}(1=기준국), present_T∈[0,1](후보 삼각형이 Delaunay 셀인지).
 %   외접원 특성화로 동적 삼각망을 정적 논리제약으로 변환:
@@ -11,11 +11,20 @@ function [isRef, info] = ilp_area_max(lon, lat, maxBaseKm, boundaryShrink)
 %     따라서 목적에는 inTri(T)≠∅ 인 후보만 포함. 목적: max Σ a_T·present_T (a_T=WGS84 면적).
 %   100km 제약: 후보 필터 + (선택된 R의 실제 Delaunay에 초과 기선이 있으면) no-good 컷 외부루프.
 %
+%   qc (선택, qc_rules.m 산출): 가용성(QC) 설계 규칙 —
+%     ① 기준국 자격: ~qc.refOK & ~외곽 → x_i=0 고정(감시국 전환 강제; 선형 부등식
+%        ub 반영) + 해당 국을 꼭짓점으로 갖는 후보/forcing 삼각형 프루닝.
+%        외곽 고정국은 커버리지 구조상 예외(경고 로그만).
+%     ② 감시 인정: 후보 셀의 내부점 중 qc.monOK 국만 감시국으로 카운트 —
+%        가용성 미달 국만 든 셀은 목적(감시가능 면적)에서 제외.
+%     qc 생략/[] 이면 규칙 미적용(legacy 동작).
+%
 %   요구: Optimization Toolbox (intlinprog, linprog).
 
     global NGII_ILP_LPONLY %#ok<GVMIS>
     if nargin<3 || isempty(maxBaseKm);      maxBaseKm = 100;    end
     if nargin<4 || isempty(boundaryShrink); boundaryShrink = 0.5; end
+    if nargin<5;                            qc = [];             end
     if isempty(which('intlinprog'))
         error('ilp_area_max:noToolbox', 'Optimization Toolbox(intlinprog)가 필요합니다.');
     end
@@ -41,6 +50,20 @@ function [isRef, info] = ilp_area_max(lon, lat, maxBaseKm, boundaryShrink)
     end
     isBoundary = false(N,1); isBoundary(bIdx) = true;
 
+    % QC 가용성 규칙 (qc_rules.m 참조; qc=[]이면 미적용)
+    refAllowed = true(N,1);  monOK = true(N,1);
+    if ~isempty(qc)
+        refAllowed = qc.refOK(:) | isBoundary;   % 외곽 고정국은 구조상 예외
+        monOK = qc.monOK(:);
+        bLow = find(isBoundary & ~qc.refOK(:));
+        if ~isempty(bLow)
+            plog(sprintf('[ILP] 경고: 외곽 고정국 %s 는 가용성 미달이지만 구조상 기준국 유지', ...
+                strjoin(cellstr(num2str(bLow(:))), ',')));
+        end
+        plog(sprintf('[ILP] QC 규칙: 기준국 부적격 %d국(x=0 고정), 감시 인정 %d/%d국', ...
+            nnz(~refAllowed), nnz(monOK), N));
+    end
+
     % grandfather 기선쌍 (초기 전체망 >maxBaseKm)
     DT0 = delaunayTriangulation(lon,lat); E0 = edges(DT0);
     len0 = deg2km(distance(lat(E0(:,1)),lon(E0(:,1)),lat(E0(:,2)),lon(E0(:,2))));
@@ -48,6 +71,8 @@ function [isRef, info] = ilp_area_max(lon, lat, maxBaseKm, boundaryShrink)
 
     % ================= 후보 삼각형 열거 =================
     tris = nchoosek(1:N, 3);
+    vOK = refAllowed(tris(:,1)) & refAllowed(tris(:,2)) & refAllowed(tris(:,3));
+    tris = tris(vOK, :);                   % QC 부적격 꼭짓점 포함 triple 프루닝 (x=0 고정이라 무의미)
     d12 = deg2km(distance(lat(tris(:,1)),lon(tris(:,1)),lat(tris(:,2)),lon(tris(:,2))));
     d13 = deg2km(distance(lat(tris(:,1)),lon(tris(:,1)),lat(tris(:,3)),lon(tris(:,3))));
     d23 = deg2km(distance(lat(tris(:,2)),lon(tris(:,2)),lat(tris(:,3)),lon(tris(:,3))));
@@ -77,7 +102,8 @@ function [isRef, info] = ilp_area_max(lon, lat, maxBaseKm, boundaryShrink)
         if any(isBoundary(inC)); continue; end          % 외접원에 외곽노드 → present 항상 0
         inT = pointsInTri(lon,lat,a,b,c,tolT);
         inT = inT(inT~=a & inT~=b & inT~=c);
-        if isempty(inT); continue; end                  % 감시국 없는 셀은 면적목적에 무의미
+        inT = inT(monOK(inT));                          % QC: 감시 인정 국만 카운트
+        if isempty(inT); continue; end                  % (인정) 감시국 없는 셀은 면적목적에 무의미
         % 평면 shoelace 면적(km^2) — winding 무관, 투영좌표. 소삼각형이라 WGS84와 <0.1%.
         Ak = 0.5*abs((Xp(b)-Xp(a))*(Yp(c)-Yp(a)) - (Xp(c)-Xp(a))*(Yp(b)-Yp(a)));
         M = M + 1;
@@ -95,6 +121,7 @@ function [isRef, info] = ilp_area_max(lon, lat, maxBaseKm, boundaryShrink)
     f  = [zeros(N,1); -aT];                 % min -면적
     lb = zeros(nz,1); ub = ones(nz,1);
     lb(isBoundary) = 1; ub(isBoundary) = 1; % 외곽 고정
+    ub(~refAllowed) = 0;                    % QC: 기준국 부적격 → 감시국 전환 고정 (x_i <= 0)
     intcon = 1:N;
 
     Lc = sum(cellfun(@numel,inCircList));
@@ -224,7 +251,8 @@ function [isRef, info] = ilp_area_max(lon, lat, maxBaseKm, boundaryShrink)
 
     info = struct('nCandRaw',Mraw,'nCand',M,'lpBound_km2',lpBound, ...
                   'ilpObj_km2',ilpObj,'ilpGap',ilpGap,'iters',iters,'isBoundary',isBoundary, ...
-                  'grandPairs',grandPairs,'maxBaseKm',maxBaseKm);
+                  'grandPairs',grandPairs,'maxBaseKm',maxBaseKm, ...
+                  'qcForcedIdx',find(~refAllowed),'monOK',monOK);
 end
 
 % ======================================================================

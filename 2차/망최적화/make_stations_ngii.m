@@ -89,22 +89,42 @@ catch ME
 end
 
 %% 3) 연간 QC 가용성 조인 (파일 있을 때만 — 선택적)
+%  qcOkDays2025 : 연간 OK 일수 (참고용 — 연중 신설국에 불리)
+%  qcAvailQ4    : 2025-Q4(10~12월, 92일) OK 비율 — 설계 규칙(qc_rules)의 판정 기준.
+%                 연중 개통국도 현재 가동 능력으로 공정하게 평가된다.
 qcOkDays2025 = NaN(n, 1);
+qcAvailQ4    = NaN(n, 1);
 qcFile = fullfile(projectRoot, 'Data', 'NGII_daily_QC_2025-01-01_2025-12-31.xlsx');
 if isfile(qcFile)
     Q = readtable(qcFile, 'Sheet', 'Station Summary', 'VariableNamingRule', 'preserve');
     [tfq, locq] = ismember(G.station, string(Q.Station));
     qcOkDays2025(tfq) = Q.OK(locq(tfq));
+
+    D = readtable(qcFile, 'Sheet', 'Daily QC', 'VariableNamingRule', 'preserve');
+    ds = string(D.Station);
+    dt = D.Date;
+    if ~isdatetime(dt); dt = datetime(string(dt), 'InputFormat', 'yyyy-MM-dd'); end
+    inQ4 = dt >= datetime(2025,10,1) & dt <= datetime(2025,12,31);
+    isOK = string(D.Status) == "OK";
+    nWin = 92;
+    for k = 1:n
+        m = inQ4 & ds == G.station(k);
+        if any(m); qcAvailQ4(k) = nnz(m & isOK) / nWin; end
+    end
+
     low = find(qcOkDays2025 < 330 & G.status == "ok");
     fprintf('\n[QC] 가동국 중 연간 OK<330일: %s\n', ...
         strjoin(compose("%s(%d일)", G.station(low), qcOkDays2025(low))', ', '));
+    lowQ = find(qcAvailQ4 < 0.95 & G.status == "ok");
+    fprintf('[QC] 가동국 중 Q4 가용률<95%%: %s\n', ...
+        strjoin(compose("%s(%.0f%%)", G.station(lowQ), 100*qcAvailQ4(lowQ))', ', '));
 else
-    fprintf('\n[QC] %s 없음 — qcOkDays2025 = NaN (파일 추가 후 재실행 시 자동 조인)\n', qcFile);
+    fprintf('\n[QC] %s 없음 — qcOkDays2025/qcAvailQ4 = NaN (파일 추가 후 재실행 시 자동 조인)\n', qcFile);
 end
 
 %% 4) 저장
-S = table(G.station, Name, G.lat, G.lon, G.hEll, Proj, G.status, G.src, qcOkDays2025, ...
-    'VariableNames', {'RINEX','Name','lat','lon','Height','Proj','status','src','qcOkDays2025'});
+S = table(G.station, Name, G.lat, G.lon, G.hEll, Proj, G.status, G.src, qcOkDays2025, qcAvailQ4, ...
+    'VariableNames', {'RINEX','Name','lat','lon','Height','Proj','status','src','qcOkDays2025','qcAvailQ4'});
 meta = struct('created', datestr(now), ...
     'source', 'Data/CORS_coordinate_최종본.xlsx (OBS_HEADER, 고시 ECEF→GRS80)', ...
     'nAll', n, 'nDesign', nnz(S.status == "ok"), ...

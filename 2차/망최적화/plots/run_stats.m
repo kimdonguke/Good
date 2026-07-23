@@ -34,10 +34,12 @@ if Rg.maxBaseKm ~= Ri.maxBaseKm
         Rg.maxBaseKm, Ri.maxBaseKm);
 end
 
-%% 통계 (초기 전체망 / 그리디 / ILP)
-Sb = net_stats(lon, lat, true(N,1), maxBaseKm);   % 초기(감시국 0)
-Sg = net_stats(lon, lat, Rg.isRef,  maxBaseKm);   % 그리디
-Si = net_stats(lon, lat, Ri.isRef,  maxBaseKm);   % ILP
+%% 통계 (초기 전체망 / 그리디 / ILP) — QC 감시 인정 마스크(R.monOK) 반영
+mG = []; if isfield(Rg, 'monOK'); mG = Rg.monOK; end
+mI = []; if isfield(Ri, 'monOK'); mI = Ri.monOK; end
+Sb = net_stats(lon, lat, true(N,1), maxBaseKm);        % 초기(감시국 0)
+Sg = net_stats(lon, lat, Rg.isRef,  maxBaseKm, mG);    % 그리디
+Si = net_stats(lon, lat, Ri.isRef,  maxBaseKm, mI);    % ILP
 
 %% 통계 출력 (한글 폭 정렬)
 fprintf('\n===== 망 최적화 결과 통계 (초기 / 그리디 / ILP) =====\n');

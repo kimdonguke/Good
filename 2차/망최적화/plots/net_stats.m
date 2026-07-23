@@ -1,14 +1,17 @@
-function S = net_stats(lon, lat, isRef, maxBaseKm)
+function S = net_stats(lon, lat, isRef, maxBaseKm, monOK)
 % NET_STATS  기준국 배치의 망 통계 (기선장/커버리지/셀면적/감시국 분포)
-%   S = net_stats(lon, lat, isRef, maxBaseKm)
+%   S = net_stats(lon, lat, isRef, maxBaseKm, monOK)
 %   isRef: true=기준국(꼭짓점), false=감시국. maxBaseKm: 기선 상한(임계선 표시용).
+%   monOK(선택): 감시 인정 마스크(QC 규칙) — 유효셀/셀당 감시국 산정에만 사용.
     if nargin<4 || isempty(maxBaseKm); maxBaseKm = 100; end
     lon=lon(:); lat=lat(:);
-    R = find(isRef); M = find(~isRef);
+    if nargin<5 || isempty(monOK); monOK = true(numel(lon),1); end
+    monOK = logical(monOK(:));
+    R = find(isRef); M = find(~isRef(:) & monOK);
     lonR=lon(R); latR=lat(R); lonM=lon(M); latM=lat(M);
     lat0=mean(lat); kx=111.320*cosd(lat0); ky=110.574;   % 면적용 등거리 투영
 
-    S.nInit=numel(lon); S.nRef=numel(R); S.nMon=numel(M);
+    S.nInit=numel(lon); S.nRef=numel(R); S.nMon=sum(~isRef(:)); S.nMonOK=numel(M);
 
     DT = delaunayTriangulation(lonR,latR); CL = DT.ConnectivityList;
     S.DT=DT; S.CL=CL; S.lonR=lonR; S.latR=latR; S.lonM=lonM; S.latM=latM;

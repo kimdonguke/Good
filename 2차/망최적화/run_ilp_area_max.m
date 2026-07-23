@@ -24,23 +24,28 @@ if isempty(which('intlinprog'))
     error('Optimization Toolbox(intlinprog)가 설치되어 있지 않습니다. 설치된 툴박스 확인: ver');
 end
 
-%% 1) 데이터 로드 (위성기준점 99개소)
-[lon, lat, names] = load_stations();
+%% 1) 데이터 로드 (최신 고시 위성기준점, stations_ngii.mat)
+[lon, lat, names, Tst] = load_stations();
 
-%% 2) 공통 실험 조건 (net_config.m 단일 소스 — 그리디와 항상 동일 조건)
+%% 2) 공통 실험 조건 (net_config.m 단일 소스 — 그리디와 항상 동일 조건) + QC 규칙
 cfg = net_config();
 maxBaseKm = cfg.maxBaseKm;
 bnd = outer_ring(lon, lat, cfg.nOuter);   % 명시적 외곽 고정 노드 인덱스
 fprintf('실험 조건: maxBaseKm=%g km, 최외곽 고정 %d개\n', maxBaseKm, numel(bnd));
+qc = qc_rules(Tst, cfg);
+lowB = bnd(~qc.refOK(bnd));
+if ~isempty(lowB)
+    fprintf('경고: 외곽 고정국 중 가용성 미달(구조상 기준국 유지): %s\n', strjoin(names(lowB)', ', '));
+end
 
 %% 3) ILP 전역최적
 tI = tic;
-[isRef, info] = ilp_area_max(lon, lat, maxBaseKm, bnd);
+[isRef, info] = ilp_area_max(lon, lat, maxBaseKm, bnd, qc);
 tILP = toc(tI);
-[aI, ncI] = valid_net_wgs84(lon, lat, isRef);
+[aI, ncI] = valid_net_wgs84(lon, lat, isRef, qc.monOK);
 
 %% 4) 결과 저장 + 실무 내보내기
-save_net_result(fullfile(thisDir,'result_ilp.mat'), 'ilp', lon, lat, isRef, maxBaseKm, bnd, info, names);
+save_net_result(fullfile(thisDir,'result_ilp.mat'), 'ilp', lon, lat, isRef, maxBaseKm, bnd, info, names, qc.monOK);
 export_result_mat(fullfile(thisDir,'result_ilp.mat'));    % 관측소 정보표 <maxBaseKm>_result.mat
 export_assignment(fullfile(thisDir,'result_ilp.mat'));    % 배정표 assignment_ilp.csv + 전환 목록
 
@@ -61,5 +66,5 @@ fprintf('===============================================\n\n');
 %% 6) 시각화 — 표준 지도 (plots/plot_net_map.m 공용)
 plot_net_map(lon, lat, isRef, ...
     sprintf('최적 감시망 구성 (ILP) — 기준국 %d, 감시국 %d, 감시가능 면적 %.0f km^2', ...
-            sum(isRef), sum(~isRef), aI), 'ILP 면적 최대화 (전역최적)');
+            sum(isRef), sum(~isRef), aI), 'ILP 면적 최대화 (전역최적)', qc.monOK);
 toc

@@ -9,6 +9,12 @@
 CJDO·GMDO·HSDO·JJNG·ULDO 는 `'all'` 모드로만 포함). 구 shp(99개소)는 legacy — 신구 차이:
 +5 신설 / −2 제외(JINJ·YECH) / **GGEO(가거도)·SGWI(서귀포) 좌표 뒤바뀜 정정**.
 
+QC 가용성 설계 규칙 (`qc_rules.m`, 임계값은 net_config): 2025-Q4 가용률(`qcAvailQ4`,
+연간 QC의 일별 OK 비율) 기준 — ① **기준국 자격** 미달 국은 x_i=0 고정(감시국 전환 강제,
+외곽 고정국은 구조상 예외+경고), ② **감시 인정** 미달 국은 셀 유효 판정에 카운트하지 않음.
+그리디·ILP·평가(valid_net_wgs84)·플롯이 동일 규칙 사용, 결과 R.monOK 로 전파.
+2025-Q4 기준 부적격: ANSG(62%)·TABK(87%)·TEGN(93%) 전환 강제, GOJE(94.7%)는 외곽 예외.
+
 ## 실행 진입점 (드라이버)
 
 | 스크립트 | 역할 |
@@ -27,7 +33,8 @@ CJDO·GMDO·HSDO·JJNG·ULDO 는 `'all'` 모드로만 포함). 구 shp(99개소)
 ## 계층 구조 / 호출 관계
 
 ```
-net_config.m ────────────── 실험 조건 단일 소스 (maxBaseKm, nOuter)
+net_config.m ────────────── 실험 조건 단일 소스 (maxBaseKm, nOuter, QC 가용률 임계 2종)
+qc_rules.m ──────────────── QC 가용성 설계 규칙 마스크 (refOK 기준국 자격 / monOK 감시 인정)
 make_stations_ngii.m ────── 데이터 생성: 고시 xlsx(NGII 102국) → stations_ngii.mat
                             (신구 shp 대조 리포트 + QC 가용성 조인은 파일 있을 때 선택적)
 load_stations.m ─────────── 데이터: stations_ngii.mat 로드 (기본 status=="ok" 97국,
