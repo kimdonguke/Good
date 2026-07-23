@@ -42,6 +42,10 @@ end
 tI = tic;
 [isRef, info] = ilp_area_max(lon, lat, maxBaseKm, bnd, qc);
 tILP = toc(tI);
+if isnan(info.ilpObj_km2)
+    error('run_ilp_area_max:ilpInfeasible', ...
+        'ILP 비실현: maxBaseKm=%g + QC 규칙 조합으로는 망 구성이 불가합니다 (결과 저장 중단).', maxBaseKm);
+end
 [aI, ncI] = valid_net_wgs84(lon, lat, isRef, qc.monOK);
 
 %% 4) 결과 저장 + 실무 내보내기

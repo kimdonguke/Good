@@ -52,6 +52,10 @@ save_net_result(fullfile(thisDir,'result_greedy.mat'), 'greedy', lon, lat, isRef
 tI = tic;
 [isRefI, infoI] = ilp_area_max(lon, lat, maxBaseKm, bnd, qc);
 tILP = toc(tI);
+if isnan(infoI.ilpObj_km2)
+    error('run_pipeline:ilpInfeasible', ...
+        'ILP 비실현: maxBaseKm=%g + QC 규칙 조합으로는 망 구성이 불가합니다 (결과 저장 중단).', maxBaseKm);
+end
 [aI, ncI] = valid_net_wgs84(lon, lat, isRefI, qc.monOK);
 save_net_result(fullfile(thisDir,'result_ilp.mat'), 'ilp', lon, lat, isRefI, maxBaseKm, bnd, infoI, names, qc.monOK);
 

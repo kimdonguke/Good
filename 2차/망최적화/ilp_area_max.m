@@ -266,6 +266,11 @@ function [isRef, info] = ilp_area_max(lon, lat, maxBaseKm, boundaryShrink, qc)
                   'ilpObj_km2',ilpObj,'ilpGap',ilpGap,'iters',iters,'isBoundary',isBoundary, ...
                   'grandPairs',grandPairs,'maxBaseKm',maxBaseKm, ...
                   'qcForcedIdx',find(~refAllowed),'monOK',monOK);
+    info.infeasible = isnan(ilpObj);
+    if info.infeasible
+        plog(['[ILP] 경고: 실현 가능한 정수해 없음(제약 상충 — 예: QC 강제 전환국이 ' ...
+              '기선 상한 기하의 구조적 필수국인 경우). 반환 isRef는 외곽 고정만(퇴화) — 저장/통계 무효.']);
+    end
 end
 
 % ======================================================================
