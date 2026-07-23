@@ -1,7 +1,13 @@
 # 망최적화 — 기준국→감시국 전환, 감시가능망 면적 최대화
 
-위성기준점 99개소에서 일부를 감시국으로 전환할 때, "감시국을 포함하는 Delaunay 셀(유효셀)"의
-합집합 면적을 최대화한다. 실무 주력 = **ILP**(빈-외접원 정식화, 전역최적 증명), 그리디 = 비교 기준.
+위성기준점(최신 고시 102개소 중 가동 97개소)에서 일부를 감시국으로 전환할 때, "감시국을
+포함하는 Delaunay 셀(유효셀)"의 합집합 면적을 최대화한다. 실무 주력 = **ILP**(빈-외접원
+정식화, 전역최적 증명), 그리디 = 비교 기준.
+
+관측소 데이터: `make_stations_ngii.m` 이 `Data/CORS_coordinate_최종본.xlsx`(고시 ECEF→GRS80)에서
+`stations_ngii.mat` 생성 → `load_stations()` 가 로드 (기본 = 가동 97국; 미가동 신설 도서 5국
+CJDO·GMDO·HSDO·JJNG·ULDO 는 `'all'` 모드로만 포함). 구 shp(99개소)는 legacy — 신구 차이:
++5 신설 / −2 제외(JINJ·YECH) / **GGEO(가거도)·SGWI(서귀포) 좌표 뒤바뀜 정정**.
 
 ## 실행 진입점 (드라이버)
 
@@ -22,7 +28,10 @@
 
 ```
 net_config.m ────────────── 실험 조건 단일 소스 (maxBaseKm, nOuter)
-load_stations.m ─────────── 데이터: shp 로드 + DMS→십진도 (lon, lat, names, 속성테이블)
+make_stations_ngii.m ────── 데이터 생성: 고시 xlsx(NGII 102국) → stations_ngii.mat
+                            (신구 shp 대조 리포트 + QC 가용성 조인은 파일 있을 때 선택적)
+load_stations.m ─────────── 데이터: stations_ngii.mat 로드 (기본 status=="ok" 97국,
+                            'all'=102국; lon, lat, names, 속성테이블 RINEX/Name/Height/Proj/…)
 outer_ring.m ────────────── 최외곽 고정 노드 인덱스 (볼록껍질 12 + YODK)
 
 greedy_area_max.m ───────── 그리디 엔진 래퍼 → greedy_monitor_net.m (통합 엔진, objective='area')
@@ -55,6 +64,7 @@ plots/ ──────────────────── 결과 .mat 
 분류 기준·목록은 `result_fig/README.md`): `01_망설계` / `02_망검증_IDOP-MSD` / `03_망검증_LSC`
 / `04_외부상설감시국` / `05_기선상한스윕_70-100km`. 데이터 파일(mat/csv/txt)은 이 폴더에 유지.
 
+- `stations_ngii.mat` — 최신 고시 관측소 데이터셋 (make_stations_ngii.m 생성, 파이프라인 입력)
 - `result_ilp.mat` / `result_greedy.mat` — 표준 결과 struct `R` (좌표·isRef·names·조건·info)
 - `<maxBaseKm>_result.mat` (예: `100_result.mat`) — 관측소 정보 테이블 `stations` (실무용)
 - `assignment_ilp.csv` — 역할 배정표 (RINEX, role, lat, lon)

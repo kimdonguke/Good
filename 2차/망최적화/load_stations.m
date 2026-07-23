@@ -1,10 +1,19 @@
-function [lon, lat, names, T] = load_stations()
-% LOAD_STATIONS  위성기준점(99개소) 데이터 로드 (파이프라인 공통 진입점)
-%   [lon, lat, names, T] = load_stations()
-%     lon, lat : 십진도 좌표 (DMS 문자열 → dms2deg 변환, WGS84)
+function [lon, lat, names, T] = load_stations(mode)
+% LOAD_STATIONS  국토지리정보원 위성기준점 데이터 로드 (파이프라인 공통 진입점)
+%   [lon, lat, names, T] = load_stations()        — 설계용(기본): status=="ok" 만
+%   [lon, lat, names, T] = load_stations('all')   — 고시 전체(미가동 신설국 포함)
+%     lon, lat : 십진도 좌표 (고시 ECEF X,Y,Z → GRS80 측지 변환, KGD2002 정의 타원체)
 %     names    : RINEX 4문자 코드 (실무 배정표/식별자)
-%     T        : 전체 속성 테이블 (Name 한글지점명, Height 타원체고, Proj 투영원점 등)
-%   shp 원본: Data/rts/위성기준점(99개소).shp — DMS 파싱 실패 행은 제외(validDMS).
+%     T        : 속성 테이블 (RINEX/Name 한글지점명/lat/lon/Height 타원체고/
+%                Proj 투영원점/status/src/qcOkDays2025)
+%
+%   데이터 소스: stations_ngii.mat — make_stations_ngii.m 이 최신 고시
+%   (Data/CORS_coordinate_최종본.xlsx, 2026-07 반영 102개소)로부터 생성.
+%   기본 설계셋은 가동 97개소 (status=="missing" 미가동 신설 도서국
+%   CJDO·GMDO·HSDO·JJNG·ULDO 제외 — 상세 근거는 make_stations_ngii.m 헤더).
+%
+%   (legacy) 구 소스 Data/rts/위성기준점(99개소).shp — 2026-07-22 이전 결과가
+%   이 기준. 신구 차이: +5 신설 / −2 제외(JINJ·YECH) / GGEO·SGWI 좌표 정정.
 
 % ---- 프로젝트 경로 자동 설정 ----
 thisDir = fileparts(mfilename('fullpath'));
@@ -23,18 +32,26 @@ for pIdx = 1:numel(ngiiPaths)
 end
 % ---------------------------------
 
-rtsStations = struct2table(shaperead('위성기준점(99개소).shp'));
-rtsStations.Properties.VariableNames = {'Geometry','X_proj','Y_proj','FID1','FID2', ...
-    'Name','RINEX','LAT_dms','LON_dms','Height','X1','Y1','Proj','None1','None2'}';
+if nargin < 1 || isempty(mode); mode = 'design'; end
 
-latParts = cellfun(@(x) str2double(strsplit(x,'-')), rtsStations.LAT_dms, 'UniformOutput', false);
-lonParts = cellfun(@(x) str2double(strsplit(x,'-')), rtsStations.LON_dms, 'UniformOutput', false);
-validDMS = ~cellfun('isempty', latParts) & ~cellfun('isempty', lonParts);
-rtsStations.LAT_deg(validDMS) = cellfun(@(x) dms2deg(x'), latParts(validDMS));
-rtsStations.LON_deg(validDMS) = cellfun(@(x) dms2deg(x'), lonParts(validDMS));
+matFile = fullfile(thisDir, 'stations_ngii.mat');
+if ~isfile(matFile)
+    error(['load_stations: %s 가 없습니다.\n' ...
+           '먼저 make_stations_ngii.m 을 실행해 최신 고시 데이터셋을 생성하세요.'], matFile);
+end
+L = load(matFile);
+T = L.S;
 
-T     = rtsStations(validDMS, :);
-lon   = T.LON_deg;
-lat   = T.LAT_deg;
+switch lower(string(mode))
+    case "design"
+        T = T(T.status == "ok", :);
+    case "all"
+        % 전체 유지
+    otherwise
+        error('load_stations: 알 수 없는 mode "%s" (design | all)', mode);
+end
+
+lon   = T.lon;
+lat   = T.lat;
 names = string(T.RINEX);
 end
