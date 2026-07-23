@@ -9,11 +9,17 @@
 CJDO·GMDO·HSDO·JJNG·ULDO 는 `'all'` 모드로만 포함). 구 shp(99개소)는 legacy — 신구 차이:
 +5 신설 / −2 제외(JINJ·YECH) / **GGEO(가거도)·SGWI(서귀포) 좌표 뒤바뀜 정정**.
 
-QC 가용성 설계 규칙 (`qc_rules.m`, 임계값은 net_config): 2025-Q4 가용률(`qcAvailQ4`,
-연간 QC의 일별 OK 비율) 기준 — ① **기준국 자격** 미달 국은 x_i=0 고정(감시국 전환 강제,
-외곽 고정국은 구조상 예외+경고), ② **감시 인정** 미달 국은 셀 유효 판정에 카운트하지 않음.
-그리디·ILP·평가(valid_net_wgs84)·플롯이 동일 규칙 사용, 결과 R.monOK 로 전파.
-2025-Q4 기준 부적격: ANSG(62%)·TABK(87%)·TEGN(93%) 전환 강제, GOJE(94.7%)는 외곽 예외.
+QC 기반 기준국 선별 규칙 (`qc_rules.m`, RsrchMt 2026-07-21 김주헌 방식; 임계값은 net_config):
+지표 소스 = QC xlsx 'NGII' 시트(RINGO: Availability=7일 RTCM 제공률, MP1/2/5, SLPS;
+시트 누락 8국 ANSG~CHLW는 문서 p.9 표 전사) —
+① **Availability < 95% cut-off**: x_i=0 고정(감시국 전환 강제).
+② **SLPS ≥ 10 추가 제외**: 임계는 스윕(∞/12/10/8/6) 반복 비교로 경험적 설정 —
+   10까지는 면적 무손실(85,256 km²)로 BONH·SOUL 제외, 8부터 −6.3% 손실.
+③ **MP Score**: Q_MPi=min(1, 0.3/MPi)(IGS 권고 0.3 m), S=(Q1·Q2·Q5)^(1/3) (MP5 없으면 √(Q1·Q2)).
+④ **A7 선형 부등식**: Σ(S̄−S_j)x_j ≤ 0 — 선택 기준국 평균 Score ≥ 후보 평균 S̄.
+외곽 고정국은 스코어링 대상 제외(기준국 유지; QC 미달 8국 CHUL·GGEO·JJHG·SGWI·GOJE·
+YNGU·HCHN·YODK 경고 표기). (문서 외 확장) 감시 인정: Availability 미달 국은 셀 유효
+판정에 카운트하지 않음 — 그리디·ILP·평가·플롯 동일 규칙, R.monOK 전파.
 
 ## 실행 진입점 (드라이버)
 
@@ -34,7 +40,8 @@ QC 가용성 설계 규칙 (`qc_rules.m`, 임계값은 net_config): 2025-Q4 가�
 
 ```
 net_config.m ────────────── 실험 조건 단일 소스 (maxBaseKm, nOuter, QC 가용률 임계 2종)
-qc_rules.m ──────────────── QC 가용성 설계 규칙 마스크 (refOK 기준국 자격 / monOK 감시 인정)
+qc_rules.m ──────────────── QC 기준국 선별 규칙 (RsrchMt 방식: avail·SLPS cut-off + MP Score,
+                            refOK/monOK 마스크 + A7용 score)
 make_stations_ngii.m ────── 데이터 생성: 고시 xlsx(NGII 102국) → stations_ngii.mat
                             (신구 shp 대조 리포트 + QC 가용성 조인은 파일 있을 때 선택적)
 load_stations.m ─────────── 데이터: stations_ngii.mat 로드 (기본 status=="ok" 97국,

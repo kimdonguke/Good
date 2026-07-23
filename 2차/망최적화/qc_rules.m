@@ -1,43 +1,56 @@
 function qc = qc_rules(T, cfg)
-% QC_RULES  관측소 가용성(QC) 기반 설계 규칙 마스크 생성 (net_config 임계값 단일 소스)
+% QC_RULES  QC 기반 기준국 선별 규칙 — RsrchMt(2026-07-21, 김주헌) 방식
 %   qc = qc_rules(T, cfg)
-%     T   : load_stations() 4번째 출력 (qcAvailQ4 열 사용; 없거나 NaN 이면 1.0 간주)
-%     cfg : net_config() (qcMinAvailRef / qcMinAvailMon)
-%   출력 qc struct:
-%     .avail       : N×1 가용률 (2025-Q4 OK 비율)
-%     .refOK       : avail >= qcMinAvailRef  — 기준국 자격 (엔진에서 외곽 고정국은 예외 처리)
-%     .monOK       : avail >= qcMinAvailMon  — 감시 인정 (셀 유효 판정 카운트 대상)
-%     .minAvailRef / .minAvailMon / .names
-%   그리디/ILP 엔진에 전달하면: ~refOK & ~외곽 → x_i=0 강제(감시국 전환),
-%   셀 유효 = monOK 감시국 포함 셀. qc=[] 전달 시 규칙 미적용(legacy).
+%     T   : load_stations() 4번째 출력 (qcAvail/qcMP1~5/qcSLPS/qcScore 열 —
+%           QC xlsx 'NGII' 시트 조인본. 시트에 없는 국은 avail=0 취급)
+%     cfg : net_config() (qcMinAvailRef / qcMaxSLPS / qcMPRef / qcScoreA7 / qcMinAvailMon)
+%
+%   문서의 선별 절차:
+%     ① 외곽 기준국은 스코어링 대상 제외(기준국 유지) — 엔진의 isBoundary 예외로 처리
+%     ② Availability < 95% 우선 cut-off            → refOK=false (x_i=0 고정)
+%     ③ SLPS >= 임계값 추가 제외 (임계는 스윕으로 경험적 설정)
+%     ④ 잔여국 MP 정규화 Q_MPi=min(1, 0.3/MPi), Score=(Q1·Q2·Q5)^(1/3) (MP5 없으면 √(Q1·Q2))
+%     ⑤ A7 선형 부등식: Σ(S̄−S_j)x_j ≤ 0 — 선택 기준국 평균 Score ≥ 후보 평균 S̄
+%   출력 qc: .avail .slps .score .refOK .monOK .useA7 .minAvailRef .maxSLPS .names
+%   (monOK 는 문서 외 확장 — 가용성 미달 국은 셀 유효 판정의 감시국으로 카운트하지 않음)
 
     N = height(T);
-    a = ones(N, 1);
-    if ismember('qcAvailQ4', T.Properties.VariableNames)
-        v = T.qcAvailQ4;
-        a(~isnan(v)) = v(~isnan(v));
+    names = string(T.RINEX);
+
+    a = zeros(N, 1);                       % 시트에 없으면 데이터 없음 → 0
+    if ismember('qcAvail', T.Properties.VariableNames)
+        v = T.qcAvail;  a(~isnan(v)) = v(~isnan(v));
     else
-        warning('qc_rules:noQC', 'T 에 qcAvailQ4 열이 없어 전 국 가용률 1.0 으로 간주합니다 (make_stations_ngii 재실행 필요).');
+        warning('qc_rules:noQC', 'T 에 qcAvail 열이 없습니다 (make_stations_ngii 재실행 필요) — 전 국 0 취급.');
+    end
+    slps = Inf(N, 1);
+    if ismember('qcSLPS', T.Properties.VariableNames)
+        v = T.qcSLPS;  slps(~isnan(v)) = v(~isnan(v));
+    end
+    score = NaN(N, 1);
+    if ismember('qcScore', T.Properties.VariableNames)
+        score = T.qcScore;
     end
 
-    qc.avail = a;
-    qc.minAvailRef = cfg.qcMinAvailRef;
-    qc.minAvailMon = cfg.qcMinAvailMon;
-    qc.refOK = a >= qc.minAvailRef;
-    qc.monOK = a >= qc.minAvailMon;
-    qc.names = string(T.RINEX);
+    availOK = a >= cfg.qcMinAvailRef;
+    slpsOK  = slps < cfg.qcMaxSLPS;
 
-    fprintf('[QC 규칙] 가용률(2025-Q4) 임계: 기준국 %.2f / 감시 인정 %.2f\n', ...
-        qc.minAvailRef, qc.minAvailMon);
-    if any(~qc.refOK)
-        bad = find(~qc.refOK);
-        fprintf('  기준국 부적격 %d국: %s\n', numel(bad), ...
-            strjoin(compose("%s(%.0f%%)", qc.names(bad), 100*a(bad))', ', '));
+    qc.avail = a;  qc.slps = slps;  qc.score = score;  qc.names = names;
+    qc.minAvailRef = cfg.qcMinAvailRef;  qc.maxSLPS = cfg.qcMaxSLPS;
+    qc.refOK = availOK & slpsOK;
+    qc.useA7 = isfield(cfg, 'qcScoreA7') && cfg.qcScoreA7;
+    qc.monOK = a >= cfg.qcMinAvailMon;
+
+    fprintf('[QC 규칙/RsrchMt] Availability>=%.2f & SLPS<%g, A7(평균 Score 제약)=%d\n', ...
+        cfg.qcMinAvailRef, cfg.qcMaxSLPS, qc.useA7);
+    cutA = find(~availOK);
+    fprintf('  Availability cut-off %d국: %s\n', numel(cutA), ...
+        strjoin(compose("%s(%.2f)", names(cutA), a(cutA))', ', '));
+    cutS = find(availOK & ~slpsOK);
+    if ~isempty(cutS)
+        fprintf('  SLPS 추가 제외 %d국: %s\n', numel(cutS), ...
+            strjoin(compose("%s(%.1f)", names(cutS), slps(cutS))', ', '));
     else
-        fprintf('  기준국 부적격 없음\n');
-    end
-    ex = find(qc.refOK & ~qc.monOK);
-    if ~isempty(ex)
-        fprintf('  감시 인정 추가 제외 %d국: %s\n', numel(ex), strjoin(qc.names(ex)', ', '));
+        fprintf('  SLPS 추가 제외 없음\n');
     end
 end

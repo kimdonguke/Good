@@ -205,9 +205,22 @@ function [isRef, info] = ilp_area_max(lon, lat, maxBaseKm, boundaryShrink, qc)
     % ---- overlap/clique 제약 (겹치는 후보 삼각형 동시선택 금지: 퇴화 해소 + LP 강화) ----
     tO = tic;
     [Aov, bov, nClq] = overlap_constraints(presentTris, lon, lat, N);
-    A = [A; Aov]; 
+    A = [A; Aov];
     b_ineq = [b_ineq; bov];
     plog(sprintf('[ILP] overlap(clique) 제약 %d행 추가, 총제약 %d (%.1fs)', nClq, size(A,1), toc(tO)));
+
+    % ---- A7: 평균 품질(Score) 제약 (RsrchMt 2026-07-21) ----
+    %   Σ_j (S̄ − S_j)·x_j ≤ 0  ⇔  선택된 후보 기준국의 평균 Score ≥ 후보 전체 평균 S̄.
+    %   후보 = 외곽 아님 & 자격(refAllowed) & Score 있음. 외곽·부적격 국은 문서대로 제외.
+    if ~isempty(qc) && isfield(qc,'useA7') && qc.useA7 && isfield(qc,'score')
+        candJ = find(~isBoundary & refAllowed & ~isnan(qc.score(:)));
+        if ~isempty(candJ)
+            Sj = qc.score(candJ);  Sbar = mean(Sj);
+            rowA7 = sparse(ones(numel(candJ),1), candJ, Sbar - Sj, 1, nz);
+            A = [A; rowA7]; b_ineq = [b_ineq; 0];
+            plog(sprintf('[ILP] A7 평균품질 제약 추가: 후보 %d국, S_bar=%.3f', numel(candJ), Sbar));
+        end
+    end
 
     % ---- LP 완화 상한 (dual bound) ----
     tLP = tic;

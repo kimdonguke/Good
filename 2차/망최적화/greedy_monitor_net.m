@@ -41,16 +41,23 @@ function [isRef, info] = greedy_monitor_net(lon, lat, maxBaseKm, boundaryShrink,
     len0 = deg2km(distance(lat(E0(:,1)), lon(E0(:,1)), lat(E0(:,2)), lon(E0(:,2))));
     grandPairs = sort(E0(len0 > maxBaseKm, :), 2);
 
-    % --- 2b) QC 가용성 규칙 (qc_rules.m; ILP와 동일) ---
-    refAllowed = true(N,1);  monOK = true(N,1);
+    % --- 2b) QC 가용성/품질 규칙 (qc_rules.m; ILP와 동일) ---
+    refAllowed = true(N,1);  monOK = true(N,1);  a7 = [];
     if ~isempty(qc)
         refAllowed = qc.refOK(:) | isBoundary;   % 외곽 고정국은 구조상 예외
         monOK = qc.monOK(:);
+        if isfield(qc,'useA7') && qc.useA7 && isfield(qc,'score')
+            candMask = ~isBoundary & refAllowed & ~isnan(qc.score(:));
+            if any(candMask)
+                a7 = struct('mask', candMask, 'score', qc.score(:), ...
+                            'Sbar', mean(qc.score(candMask)));
+            end
+        end
     end
 
     % --- 3) 초기 상태 (QC 부적격 국은 선제 전환) ---
     isRef = refAllowed;
-    [feas0, Va, Nc] = configMetrics(lon, lat, isRef, maxBaseKm, grandPairs, monOK);
+    [feas0, Va, Nc] = configMetrics(lon, lat, isRef, maxBaseKm, grandPairs, monOK, a7);
     if ~feas0
         warning('greedy_monitor_net:qcInfeasible', ...
             'QC 선제 전환 직후 상태가 기선 제약을 위반합니다 — 결과 해석에 주의.');
@@ -68,7 +75,7 @@ function [isRef, info] = greedy_monitor_net(lon, lat, maxBaseKm, boundaryShrink,
         for ii = 1:numel(cand)
             x = cand(ii);
             tent = isRef; tent(x) = false;
-            [feas, Va_x, Nc_x] = configMetrics(lon, lat, tent, maxBaseKm, grandPairs, monOK);
+            [feas, Va_x, Nc_x] = configMetrics(lon, lat, tent, maxBaseKm, grandPairs, monOK, a7);
             if ~feas; continue; end
             g = pick(isArea, Va_x, Nc_x) - cur;
             if g > bestGain
@@ -97,8 +104,16 @@ function v = pick(isArea, a, c)
 end
 
 % ========================================================================
-function [feasible, Varea, Ncells] = configMetrics(lon, lat, isRef, maxBaseKm, grandPairs, monOK)
+function [feasible, Varea, Ncells] = configMetrics(lon, lat, isRef, maxBaseKm, grandPairs, monOK, a7)
     if nargin < 6 || isempty(monOK); monOK = true(numel(lon),1); end
+    if nargin < 7; a7 = []; end
+    % A7 평균 품질 제약 (선택된 후보 기준국 평균 Score >= 후보 평균 S̄)
+    if ~isempty(a7)
+        sel = isRef(:) & a7.mask;
+        if any(sel) && mean(a7.score(sel)) < a7.Sbar - 1e-12
+            feasible = false; Varea = 0; Ncells = 0; return;
+        end
+    end
     R = find(isRef);
     if numel(R) < 3; feasible = false; Varea = 0; Ncells = 0; return; end
     lonR = lon(R); latR = lat(R);
