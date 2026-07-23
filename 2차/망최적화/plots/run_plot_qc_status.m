@@ -32,7 +32,7 @@ isB = false(N,1); isB(R.boundarySpec) = true;
 cfg = net_config();
 qc = qc_rules(T, cfg);
 
-availCut = qc.avail < cfg.qcMinAvailRef;
+availCut = ~((qc.avail > 0) & (qc.avail >= qc.availThr));   % 유효 임계 기준 (0=미제공 포함)
 slpsCut  = ~availCut & ~(qc.slps < cfg.qcMaxSLPS);
 cand = ~isB & qc.refOK & ~isnan(qc.score);
 Sbar = mean(qc.score(cand));
@@ -81,7 +81,7 @@ hh(end+1,1) = geoplot(gx, lat(bExempt), lon(bExempt), 's', 'MarkerEdgeColor', [0
 lbl{end+1} = sprintf('기준국·외곽 예외 — QC 미달 유지 (%d개소)', nnz(bExempt));
 hh(end+1,1) = geoplot(gx, lat(forcedAvail), lon(forcedAvail), 'v', 'MarkerEdgeColor', 'k', ...
     'MarkerFaceColor', [0.85 0.1 0.1], 'MarkerSize', 7, 'LineStyle', 'none');
-lbl{end+1} = sprintf('감시국 전환 — Availability<%.2f (%d개소)', cfg.qcMinAvailRef, nnz(forcedAvail));
+lbl{end+1} = sprintf('감시국 전환 — Availability<%.2f (%d개소)', qc.availThr, nnz(forcedAvail));
 hh(end+1,1) = geoplot(gx, lat(forcedSlps), lon(forcedSlps), 'v', 'MarkerEdgeColor', 'k', ...
     'MarkerFaceColor', [0.8 0.45 0.65], 'MarkerSize', 7, 'LineStyle', 'none');
 lbl{end+1} = sprintf('감시국 전환 — SLPS>=%g (%d개소)', cfg.qcMaxSLPS, nnz(forcedSlps));

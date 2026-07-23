@@ -12,6 +12,11 @@ function cfg = net_config()
     %  stations_ngii.mat 에 조인됨. qc_rules.m 이 마스크/Score 생성 → 그리디/ILP 반영.
     cfg.qcMinAvailRef = 0.95;  % ① Availability 95% 미만 cut-off (기준국 부적격, x_i=0
                                %    고정). 외곽 고정국은 스코어링 대상 제외(기준국 유지).
+    cfg.qcAvailSigmaK = 3;     % ①' 분포 기반 컷(기본): 임계 = mean − k·std (가동국 avail>0
+                               %    분포 기준; avail=0 완전 미제공 국은 무조건 컷). [] = 고정
+                               %    qcMinAvailRef 사용. 2025 데이터에선 2σ(0.892)와 3σ(0.852)가
+                               %    동일 망을 주고(0.83 그룹 컷, INCH는 SLPS로 걸림),
+                               %    고정 0.95 대비 WNJU(0.93) 생존 → 면적 +2.7% (87,543 km²).
     cfg.qcMaxSLPS     = 10;    % ② SLPS 임계 초과 추가 제외 — 문서 지침대로 망 재구성
                                %    반복 비교(스윕)로 경험적 설정. Inf = 비활성.
     cfg.qcMPRef       = 0.3;   % ③ MP 정규화 기준 [m] (IGS 권고값)

@@ -32,17 +32,30 @@ function qc = qc_rules(T, cfg)
         score = T.qcScore;
     end
 
-    availOK = a >= cfg.qcMinAvailRef;
-    slpsOK  = slps < cfg.qcMaxSLPS;
+    % 가용성 임계: 고정(qcMinAvailRef) 또는 분포 기반(mean − k·std, 가동국 avail>0 기준)
+    if isfield(cfg, 'qcAvailSigmaK') && ~isempty(cfg.qcAvailSigmaK)
+        oper = a > 0;                        % avail=0(완전 미제공)은 분포에서 제외 + 무조건 컷
+        thrA = mean(a(oper)) - cfg.qcAvailSigmaK * std(a(oper));
+        availOK = oper & (a >= thrA);
+        availDesc = sprintf('Availability>=%.3f (=mean−%g·std, 가동국 기준; 0은 무조건 컷)', ...
+            thrA, cfg.qcAvailSigmaK);
+        thrMon = thrA;
+    else
+        availOK = a >= cfg.qcMinAvailRef;
+        availDesc = sprintf('Availability>=%.2f (고정)', cfg.qcMinAvailRef);
+        thrMon = cfg.qcMinAvailMon;
+    end
+    slpsOK = slps < cfg.qcMaxSLPS;
 
     qc.avail = a;  qc.slps = slps;  qc.score = score;  qc.names = names;
+    qc.availThr = thrMon;                % 유효 가용성 임계 (고정 또는 mean−k·std)
     qc.minAvailRef = cfg.qcMinAvailRef;  qc.maxSLPS = cfg.qcMaxSLPS;
     qc.refOK = availOK & slpsOK;
     qc.useA7 = isfield(cfg, 'qcScoreA7') && cfg.qcScoreA7;
-    qc.monOK = a >= cfg.qcMinAvailMon;
+    qc.monOK = (a > 0) & (a >= thrMon);
 
-    fprintf('[QC 규칙/RsrchMt] Availability>=%.2f & SLPS<%g, A7(평균 Score 제약)=%d\n', ...
-        cfg.qcMinAvailRef, cfg.qcMaxSLPS, qc.useA7);
+    fprintf('[QC 규칙/RsrchMt] %s & SLPS<%g, A7(평균 Score 제약)=%d\n', ...
+        availDesc, cfg.qcMaxSLPS, qc.useA7);
     cutA = find(~availOK);
     fprintf('  Availability cut-off %d국: %s\n', numel(cutA), ...
         strjoin(compose("%s(%.2f)", names(cutA), a(cutA))', ', '));
