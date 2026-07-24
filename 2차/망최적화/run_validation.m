@@ -297,32 +297,32 @@ legend({'기존 망 (99개소)', sprintf('최적화 망 (%d개소)', nnz(isRef))
 print(fig2, fullfile(figDir, 'validation_error.png'), '-dpng', '-r200');
 
 % ---- figure: 수평 95% 오차 지도 (성능 heat map — colorbar 필요 예외) ----
-fig3 = figure('Name','validation_error_map','Position',[100 100 960 720],'Color','w');
-tl = tiledlayout(fig3, 1, 2, 'TileSpacing', 'compact');
+% 지도류 figure는 한 figure에 지도 1개 규격 — 망별 개별 파일, clim 공유로 비교 가능
 okO = common & EoldG.valid;  okN = common & EnewG.valid;
 cl = [0, prctile_local([EoldG.H95cm(okO); EnewG.H95cm(okN)], 99)];
-mapTtl = {sprintf('(a) 기존 망 (99개소) — 평균 %.2f cm', SoldG.avgH), ...
-          sprintf('(b) 최적화 망 (%d개소) — 평균 %.2f cm', nnz(isRef), SnewG.avgH)};
+mapFile = {'validation_error_map_old.png', 'validation_error_map_new.png'};
+mapTtl = {sprintf('기존 망 (%d개소) — 평균 %.2f cm', numel(latAll), SoldG.avgH), ...
+          sprintf('최적화 망 (%d개소) — 평균 %.2f cm', nnz(isRef), SnewG.avgH)};
 for k = 1:2
-    gx = geoaxes(tl); gx.Layout.Tile = k;
+    fig3 = figure('Name','validation_error_map','Position',[100 100 960 720],'Color','w');
+    gx = geoaxes(fig3);
     try
         geobasemap(gx, 'grayland');
     catch
     end
     hold(gx, 'on');
     if k == 1
-        geoscatter(gx, glat(okO), glon(okO), 4, EoldG.H95cm(okO), 'filled');
-        geoplot(gx, latAll, lonAll, 'k^', 'MarkerSize', 3, 'MarkerFaceColor', 'k');
+        geoscatter(gx, glat(okO), glon(okO), 6, EoldG.H95cm(okO), 'filled');
+        geoplot(gx, latAll, lonAll, 'k^', 'MarkerSize', 4, 'MarkerFaceColor', 'k');
     else
-        geoscatter(gx, glat(okN), glon(okN), 4, EnewG.H95cm(okN), 'filled');
-        geoplot(gx, latAll(isRef), lonAll(isRef), 'k^', 'MarkerSize', 3, 'MarkerFaceColor', 'k');
+        geoscatter(gx, glat(okN), glon(okN), 6, EnewG.H95cm(okN), 'filled');
+        geoplot(gx, latAll(isRef), lonAll(isRef), 'k^', 'MarkerSize', 4, 'MarkerFaceColor', 'k');
     end
     geolimits(gx, [33 39], [125 131]);
     clim(gx, cl); colorbar(gx);
-    title(gx, mapTtl{k});
+    title(gx, {'수평 측위오차 예측치 (95%) [cm] — 기준국 선택: 반경 150 km (▲: 기준국)', mapTtl{k}});
+    print(fig3, fullfile(figDir, mapFile{k}), '-dpng', '-r200');
 end
-title(tl, '수평 측위오차 예측치 (95%) [cm] — 기준국 선택: 반경 150 km (▲: 기준국)');
-print(fig3, fullfile(figDir, 'validation_error_map.png'), '-dpng', '-r200');
 
 % ---- figure: 요구 성능 미달 지점 지도, 규칙별 (만족=회색, 수직만 초과=주황, 수평 초과=빨강) ----
 % 수직 한계(10 cm)가 수평(5 cm)보다 먼저 걸리는 구조(α_U/α_E ≈ 3.6)라
@@ -332,7 +332,7 @@ for m = 1:numel(modes)
     plot_exceed_fig(fullfile(figDir, excFile{m}), Eo{m}, En{m}, glat, glon, ...
         latAll, lonAll, isRef, common, HOR_LIM, VER_LIM, modeLabel{m});
 end
-fprintf('figure 저장: validation_error.png / validation_error_map.png / %s\n', strjoin(excFile, ' / '));
+fprintf('figure 저장: validation_error.png / validation_error_map_{old,new}.png / %s (각 _old/_new)\n', strjoin(excFile, ' / '));
 
 fprintf('검증 2단계(오차 모델) 완료\n');
 
@@ -367,16 +367,17 @@ end
 
 function plot_exceed_fig(figFile, Eold, Enew, glat, glon, latAll, lonAll, isRef, common, horLim, verLim, ruleLabel)
 % 유계 초과 분류 지도 (규칙 공용): 만족=회색, 수직만 초과=주황, 수평 초과=빨강
-    fig = figure('Name', 'validation_error_exceed', 'Position', [100 100 960 720], 'Color', 'w');
-    tl = tiledlayout(fig, 1, 2, 'TileSpacing', 'compact');
+% 지도류 figure는 한 figure에 지도 1개 규격 — figFile 기저명에 _old/_new를 붙여 망별 저장
     GREY = [0.78 0.78 0.78];  ORNG = [1.0 0.55 0.0];  RED = [0.85 0.1 0.1];
+    [fDir, fBase, fExt] = fileparts(figFile);
+    sfx = {'_old', '_new'};
     for k = 1:2
         if k == 1
             Ek = Eold;  refLatK = latAll;         refLonK = lonAll;
-            netName = sprintf('(a) 기존 망 (%d개소)', numel(latAll));
+            netName = sprintf('기존 망 (%d개소)', numel(latAll));
         else
             Ek = Enew;  refLatK = latAll(isRef);  refLonK = lonAll(isRef);
-            netName = sprintf('(b) 최적화 망 (%d개소)', nnz(isRef));
+            netName = sprintf('최적화 망 (%d개소)', nnz(isRef));
         end
         okK   = common & Ek.valid;
         sat   = okK & Ek.H95cm <= horLim & Ek.V95cm <= verLim;
@@ -384,7 +385,8 @@ function plot_exceed_fig(figFile, Eold, Enew, glat, glon, latAll, lonAll, isRef,
         hExc  = okK & Ek.H95cm >  horLim;
         nExc  = nnz(vOnly) + nnz(hExc);
 
-        gx = geoaxes(tl); gx.Layout.Tile = k;
+        fig = figure('Name', 'validation_error_exceed', 'Position', [100 100 960 720], 'Color', 'w');
+        gx = geoaxes(fig);
         try
             geobasemap(gx, 'grayland');
         catch
@@ -394,12 +396,12 @@ function plot_exceed_fig(figFile, Eold, Enew, glat, glon, latAll, lonAll, isRef,
         geoplot(gx, [glat(sat);   NaN], [glon(sat);   NaN], '.', 'Color', GREY, 'MarkerSize', 2);
         geoplot(gx, [glat(vOnly); NaN], [glon(vOnly); NaN], '.', 'Color', ORNG, 'MarkerSize', 5);
         geoplot(gx, [glat(hExc);  NaN], [glon(hExc);  NaN], '.', 'Color', RED,  'MarkerSize', 6);
-        geoplot(gx, refLatK, refLonK, 'k^', 'MarkerSize', 3, 'MarkerFaceColor', 'k');
+        geoplot(gx, refLatK, refLonK, 'k^', 'MarkerSize', 4, 'MarkerFaceColor', 'k');
         geolimits(gx, [33 39], [125 131]);
-        title(gx, sprintf('%s — 요구 성능 미달 %d점 (%.2f%%)', netName, nExc, 100*nExc/nnz(common)));
+        title(gx, {sprintf('요구 성능 미달 지점 분포 — 기준국 선택: %s', ruleLabel), ...
+                   sprintf('%s — 요구 성능 미달 %d점 (%.2f%%)', netName, nExc, 100*nExc/nnz(common))});
         legend(gx, {'요구 성능 만족', sprintf('수직 한계 초과 (>%g cm)', verLim), ...
                     sprintf('수평 한계 초과 (>%g cm)', horLim), '기준국'}, 'Location', 'northeast');
+        print(fig, fullfile(fDir, [fBase sfx{k} fExt]), '-dpng', '-r200');
     end
-    title(tl, sprintf('요구 성능 미달 지점 분포 — 기준국 선택: %s', ruleLabel));
-    print(fig, figFile, '-dpng', '-r200');
 end
