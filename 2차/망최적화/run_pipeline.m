@@ -100,9 +100,9 @@ title('감시가능 면적 비교 — 그리디 · ILP · LP 상한');
 text(1:3, vals, compose('%.0f',vals), 'HorizontalAlignment','center','VerticalAlignment','bottom');
 
 drawnow;
-print(fG, fullfile(figDir, 'Greedy_plot.png'), '-dpng', '-r200');
-print(fI, fullfile(figDir, 'ILP_plot.png'), '-dpng', '-r200');
-print(fB, fullfile(figDir, 'area_compare.png'), '-dpng', '-r200');
+exportgraphics(fG, fullfile(figDir, 'Greedy_plot.png'), 'Resolution', 200);   % 여백 자동 크롭
+exportgraphics(fI, fullfile(figDir, 'ILP_plot.png'), 'Resolution', 200);
+exportgraphics(fB, fullfile(figDir, 'area_compare.png'), 'Resolution', 200);
 fprintf('그림 저장: %s (Greedy_plot / ILP_plot / area_compare)\n', figDir);
 
 fprintf('통합 파이프라인 완료: %.1f s\n', toc(tAll));

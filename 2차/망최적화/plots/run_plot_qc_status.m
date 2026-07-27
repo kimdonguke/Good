@@ -118,5 +118,5 @@ geolimits(gx, [33 39], [125 132]); hold(gx, 'off');
 figSave = fullfile(optDir, 'result_fig', '01_망설계');
 if ~isfolder(figSave); mkdir(figSave); end
 drawnow;
-print(fig, fullfile(figSave, 'qc_station_status.png'), '-dpng', '-r200');
+exportgraphics(fig, fullfile(figSave, 'qc_station_status.png'), 'Resolution', 200);
 fprintf('그림 저장: %s\n', fullfile(figSave, 'qc_station_status.png'));

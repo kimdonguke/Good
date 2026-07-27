@@ -108,7 +108,7 @@ figSave = fullfile(optDir,'result_fig','01_망설계');   % figure는 작업단�
 if ~isfolder(figSave); mkdir(figSave); end
 drawnow;
 if isgraphics(fA)
-    print(fA, fullfile(figSave,'stats_panels.png'), '-dpng', '-r200');
+    exportgraphics(fA, fullfile(figSave,'stats_panels.png'), 'Resolution', 200);
 else
     warning('플롯 A 핸들이 유효하지 않아 저장을 건너뜁니다.');
 end
@@ -130,7 +130,7 @@ xlim([124.5 130.5]); ylim([33.5 38.8]); hold off;
 % ---- 플롯 B 즉시 저장 ----
 drawnow;
 if isgraphics(fB)
-    print(fB, fullfile(figSave,'stats_coverage_map.png'), '-dpng', '-r200');
+    exportgraphics(fB, fullfile(figSave,'stats_coverage_map.png'), 'Resolution', 200);
 else
     warning('플롯 B 핸들이 유효하지 않아 저장을 건너뜁니다 (창이 닫혔을 수 있음).');
 end

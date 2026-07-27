@@ -178,7 +178,7 @@ stairs_cdf(Gnew.triMeanKm(common), 'r-');
 grid on; xlabel('소속 삼각형 평균 기선장 [km]'); ylabel('누적 확률');
 title('(b) 소속 삼각형 평균 기선장 누적분포');
 legend({'기존 망 (99개소)', sprintf('최적화 망 (%d개소)', nnz(isRef))}, 'Location', 'northeast');
-print(fig, fullfile(figDir, 'validation_geometry.png'), '-dpng', '-r200');
+exportgraphics(fig, fullfile(figDir, 'validation_geometry.png'), 'Resolution', 200);
 fprintf('figure 저장: validation_geometry.png\n');
 
 fprintf('검증 1단계(기하) 완료\n');
@@ -294,7 +294,7 @@ xline(VER_LIM, 'k--', sprintf('요구 성능 %g cm', VER_LIM));
 grid on; xlabel('수직 측위오차 예측치 (95%) [cm]'); ylabel('누적 확률'); xlim([0 40]);
 title('(b) 수직 측위오차 (95%) 누적분포');
 legend({'기존 망 (99개소)', sprintf('최적화 망 (%d개소)', nnz(isRef))}, 'Location', 'southeast');
-print(fig2, fullfile(figDir, 'validation_error.png'), '-dpng', '-r200');
+exportgraphics(fig2, fullfile(figDir, 'validation_error.png'), 'Resolution', 200);
 
 % ---- figure: 수평 95% 오차 지도 (성능 heat map — colorbar 필요 예외) ----
 % 지도류 figure는 한 figure에 지도 1개 규격 — 망별 개별 파일, clim 공유로 비교 가능
@@ -321,7 +321,7 @@ for k = 1:2
     geolimits(gx, [33 39], [125 131]);
     clim(gx, cl); colorbar(gx);
     title(gx, {'수평 측위오차 예측치 (95%) [cm] — 기준국 선택: 반경 150 km (▲: 기준국)', mapTtl{k}});
-    print(fig3, fullfile(figDir, mapFile{k}), '-dpng', '-r200');
+    exportgraphics(fig3, fullfile(figDir, mapFile{k}), 'Resolution', 200);
 end
 
 % ---- figure: 요구 성능 미달 지점 지도, 규칙별 (만족=회색, 수직만 초과=주황, 수평 초과=빨강) ----
@@ -402,6 +402,6 @@ function plot_exceed_fig(figFile, Eold, Enew, glat, glon, latAll, lonAll, isRef,
         title(gx, {sprintf('요구 성능 미달 지점 분포 — 기준국 선택: %s', ruleLabel), netName});
         legend(gx, {'요구 성능 만족', sprintf('수직 한계 초과 (>%g cm)', verLim), ...
                     sprintf('수평 한계 초과 (>%g cm)', horLim), '기준국'}, 'Location', 'northeast');
-        print(fig, fullfile(fDir, [fBase sfx{k} fExt]), '-dpng', '-r200');
+        exportgraphics(fig, fullfile(fDir, [fBase sfx{k} fExt]), 'Resolution', 200);
     end
 end

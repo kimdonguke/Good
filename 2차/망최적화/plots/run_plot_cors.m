@@ -140,5 +140,5 @@ geolimits(gx, [33 39], [125 132]); hold(gx,'off');
 figSave = fullfile(optDir,'result_fig','04_외부상설감시국');
 if ~isfolder(figSave); mkdir(figSave); end
 drawnow;
-print(gcf, fullfile(figSave, sprintf('cors_overlay_%s.png', R.method)), '-dpng', '-r200');
+exportgraphics(gcf, fullfile(figSave, sprintf('cors_overlay_%s.png', R.method)), 'Resolution', 200);
 fprintf('그림 저장: %s\n', fullfile(figSave, sprintf('cors_overlay_%s.png', R.method)));

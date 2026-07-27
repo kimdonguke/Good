@@ -231,7 +231,7 @@ for pnl = 1:2
     ylabel('누적 확률'); grid on;
     legend(hh, lbl, 'Location', 'southeast');
 end
-print(fig1, fullfile(figDir, 'validation_lsc_cdf.png'), '-dpng', '-r200');
+exportgraphics(fig1, fullfile(figDir, 'validation_lsc_cdf.png'), 'Resolution', 200);
 
 %% 8) figure 2 — 수평 95% 오차 지도 (설계 시나리오, heat map — colorbar 예외)
 % 지도류 figure는 한 figure에 지도 1개 규격 — 망별 개별 파일, clim 공유로 비교 가능
@@ -261,7 +261,7 @@ for k = 1:2
     clim(gx, cl); colorbar(gx);
     title(gx, {sprintf('수평 측위오차 예측치 (95%%) [cm] — 전역 LSC, %s 시나리오', ...
         SCEN(DESIGN).name), mapTtl{k}});
-    print(fig2, fullfile(figDir, mapFile{k}), '-dpng', '-r200');
+    exportgraphics(fig2, fullfile(figDir, mapFile{k}), 'Resolution', 200);
 end
 
 %% 9) figure 3 — 요구 성능 미달 지점 지도 (설계 시나리오, 전역 LSC)
@@ -292,7 +292,7 @@ for pnl = 1:2
     end
 end
 sgtitle('전리층 활동도 시나리오별 유계 만족율 — 전역 LSC');
-print(fig4, fullfile(figDir, 'validation_lsc_scen.png'), '-dpng', '-r200');
+exportgraphics(fig4, fullfile(figDir, 'validation_lsc_scen.png'), 'Resolution', 200);
 
 fprintf('figure 저장: validation_lsc_cdf/scen.png + map/exceed 각 _old/_new (지도 1개/figure)\n');
 fprintf('검증 v2(LSC) 완료\n');
@@ -360,6 +360,6 @@ function plot_exceed_fig(figFile, Eold, Enew, glat, glon, latAll, lonAll, isRef,
         title(gx, {sprintf('요구 성능 미달 지점 분포 — %s', ruleLabel), netName});
         legend(gx, {'요구 성능 만족', sprintf('수직 한계 초과 (>%g cm)', verLim), ...
                     sprintf('수평 한계 초과 (>%g cm)', horLim), '기준국'}, 'Location', 'northeast');
-        print(fig, fullfile(fDir, [fBase sfx{k} fExt]), '-dpng', '-r200');
+        exportgraphics(fig, fullfile(fDir, [fBase sfx{k} fExt]), 'Resolution', 200);
     end
 end
