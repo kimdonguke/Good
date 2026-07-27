@@ -62,6 +62,7 @@ save_net_result(fullfile(thisDir,'result_ilp.mat'), 'ilp', lon, lat, isRefI, max
 %% 5) 실무 내보내기 (ILP 기준)
 export_result_mat(fullfile(thisDir,'result_ilp.mat'));    % 관측소 정보표 <maxBaseKm>_result.mat
 export_assignment(fullfile(thisDir,'result_ilp.mat'));    % 배정표 assignment_ilp.csv + 전환 목록
+export_station_list(fullfile(thisDir,'result_ilp.mat'));  % 기준국/감시국 명단 <maxBaseKm>_station_list.xlsx
 
 %% 6) 비교 요약 + 최적성 인증
 fprintf('\n===== 통합 파이프라인: 그리디 vs ILP (면적 최대화) =====\n');
