@@ -31,6 +31,14 @@ isB = false(N,1); isB(R.boundarySpec) = true;
 [~, ~, ~, T] = load_stations();
 cfg = net_config();
 qc = qc_rules(T, cfg);
+if isfield(qc, 'enabled') && ~qc.enabled
+    % QC 비활성 상태에선 "cut-off 전환/외곽 예외" 분류가 성립하지 않음 — 지도 생략.
+    % (남아 있으면 QC 규칙망 결과로 오독될 수 있어 기존 산출물도 제거)
+    stale = fullfile(optDir, 'result_fig', '01_망설계', 'qc_station_status.png');
+    if isfile(stale); delete(stale); end
+    fprintf('QC 비활성(cfg.qcEnable=false) — 선별 상태 지도 생략 (qc_station_status.png 제거)\n');
+    return;
+end
 
 noQC = false(N,1);
 if isfield(qc, 'noQC'); noQC = qc.noQC; end        % 신설 QC 미평가국 (컷 면제)

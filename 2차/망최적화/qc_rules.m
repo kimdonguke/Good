@@ -69,6 +69,17 @@ function qc = qc_rules(T, cfg)
     qc.useA7 = isfield(cfg, 'qcScoreA7') && cfg.qcScoreA7;
     qc.monOK = ((a > 0) & (a >= thrMon)) | noQC;
 
+    % QC 전체 비활성 스위치 (cfg.qcEnable=false): 컷·A7·감시인정 제한을 모두 해제.
+    % 지표(avail/slps/score)는 리포트용으로 계속 계산·보존된다.
+    qc.enabled = ~isfield(cfg, 'qcEnable') || cfg.qcEnable;
+    if ~qc.enabled
+        qc.refOK = true(N,1);
+        qc.monOK = true(N,1);
+        qc.useA7 = false;
+        fprintf('[QC 규칙] 비활성 (cfg.qcEnable=false) — cut-off·A7·감시인정 제한 없음 (추후 진행 예정)\n');
+        return;
+    end
+
     fprintf('[QC 규칙/RsrchMt] %s & SLPS<%g, A7(평균 Score 제약)=%d\n', ...
         availDesc, cfg.qcMaxSLPS, qc.useA7);
     if any(noQC)

@@ -4,7 +4,13 @@ function cfg = net_config()
 %   조건을 바꿀 때는 여기 한 곳만 수정하면 모든 드라이버가 동일 조건으로 정렬된다.
 %   (plots/run_stats.m 은 결과 .mat 에 저장된 maxBaseKm 을 읽으므로 자동 반영)
 
-    cfg.maxBaseKm = 100;   % 신설 기선 최대 길이 [km] (초기망의 초과 기선은 grandfather 예외)
+    cfg.maxBaseKm = 70;    % 신설 기선 최대 길이 [km] (초기망의 초과 기선은 grandfather 예외)
+                           % 2026-07-27 사용자 지시로 공식 기본값 100 -> 70 변경.
+                           % (100km QC 확정망 43/59·93,163km2 는 커밋 bf62001 이력 보존)
+    cfg.qcEnable  = false; % QC cut-off 적용 여부. 70km 기본망은 QC 규칙과 비실현
+                           % (SLPS 탈락 BONH·YONK가 70km 기하의 구조적 필수국)이라
+                           % 사용자 결정으로 QC는 추후 진행 — 당분간 비활성.
+                           % true 로 되돌리면 아래 컷·A7·감시인정 제한이 전부 복원된다.
     cfg.nOuter    = 13;    % 최외곽 고정 노드 수 (볼록껍질 + 경계 근접 순 자동 보충)
     cfg.outerForce = "YODK";
     % ↑ 외곽 강제 보완국: 동해안 요철 보완용 YODK. 97국 시절엔 outer_ring(13)이
