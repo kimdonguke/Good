@@ -31,6 +31,9 @@ end
 cfg = net_config();
 maxBaseKm = cfg.maxBaseKm;
 bnd = outer_ring(lon, lat, cfg.nOuter);   % 명시적 외곽 고정 노드 인덱스
+if isfield(cfg, 'outerForce') && ~isempty(cfg.outerForce)
+    bnd = unique([bnd(:); find(ismember(names, cfg.outerForce))]);   % 강제 보완국 합집합
+end
 fprintf('실험 조건: maxBaseKm=%g km, 최외곽 고정 %d개\n', maxBaseKm, numel(bnd));
 qc = qc_rules(Tst, cfg);
 lowB = bnd(~qc.refOK(bnd));

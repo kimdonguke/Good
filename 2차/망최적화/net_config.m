@@ -5,7 +5,13 @@ function cfg = net_config()
 %   (plots/run_stats.m 은 결과 .mat 에 저장된 maxBaseKm 을 읽으므로 자동 반영)
 
     cfg.maxBaseKm = 100;   % 신설 기선 최대 길이 [km] (초기망의 초과 기선은 grandfather 예외)
-    cfg.nOuter    = 13;    % 최외곽 고정 노드 수 (볼록껍질 12 + 동해안 YODK = 13)
+    cfg.nOuter    = 13;    % 최외곽 고정 노드 수 (볼록껍질 + 경계 근접 순 자동 보충)
+    cfg.outerForce = "YODK";
+    % ↑ 외곽 강제 보완국: 동해안 요철 보완용 YODK. 97국 시절엔 outer_ring(13)이
+    %   자동 선정(볼록껍질12+YODK)했으나, 신설 도서 5국 가동(2026-07)으로 볼록껍질이
+    %   10국(ULDO 포함)으로 바뀌며 자동 보충이 남해안(PSJA·PUSN·SSAN)으로 이동 →
+    %   YODK가 탈락하면 동해안 QC 컷 군집(YODK·YONK·YDKG·YEOJ·YCMP)을 덮을 수 없어
+    %   ILP 비실현. 드라이버가 bnd = outer_ring(...) ∪ outerForce 로 합집합 처리.
 
     % QC 기반 기준국 선별 규칙 — RsrchMt(2026-07-21, 김주헌) 방식.
     %  지표 소스 = QC xlsx 'NGII' 시트(RINGO 연간: Availability·MP1/2/5·SLPS),

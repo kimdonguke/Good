@@ -18,6 +18,14 @@ function qc = qc_rules(T, cfg)
     names = string(T.RINEX);
 
     a = zeros(N, 1);                       % 시트에 없으면 데이터 없음 → 0
+    % QC 미평가 = 2025년 연간 RINEX OK 0일(평가기간 전체 미가동 신설국).
+    % 이 경우 시트의 Availability 0.00 등은 개통 이전 기록이라 평가 근거가 못 된다.
+    % (ANSG 등 부분 가동국은 OK>0이라 여기 해당 없음 — 정상적으로 컷 평가)
+    noQC = false(N, 1);
+    if ismember('qcOkDays2025', T.Properties.VariableNames)
+        d = T.qcOkDays2025;
+        noQC = isnan(d) | d == 0;
+    end
     if ismember('qcAvail', T.Properties.VariableNames)
         v = T.qcAvail;  a(~isnan(v)) = v(~isnan(v));
     else
@@ -47,15 +55,26 @@ function qc = qc_rules(T, cfg)
     end
     slpsOK = slps < cfg.qcMaxSLPS;
 
+    % QC 미평가 신설국(2025년 데이터 부재, 고시 status=ok 정상 운영 판정): 컷 근거가
+    % 없으므로 규칙 면제 — 기준국 후보·감시 인정 허용. Score=NaN이라 A7 평균에서는
+    % 자동 제외된다(ilp_area_max candJ가 isnan(score) 배제).
+    availOK = availOK | noQC;
+    slpsOK  = slpsOK  | noQC;
+
     qc.avail = a;  qc.slps = slps;  qc.score = score;  qc.names = names;
+    qc.noQC = noQC;
     qc.availThr = thrMon;                % 유효 가용성 임계 (고정 또는 mean−k·std)
     qc.minAvailRef = cfg.qcMinAvailRef;  qc.maxSLPS = cfg.qcMaxSLPS;
     qc.refOK = availOK & slpsOK;
     qc.useA7 = isfield(cfg, 'qcScoreA7') && cfg.qcScoreA7;
-    qc.monOK = (a > 0) & (a >= thrMon);
+    qc.monOK = ((a > 0) & (a >= thrMon)) | noQC;
 
     fprintf('[QC 규칙/RsrchMt] %s & SLPS<%g, A7(평균 Score 제약)=%d\n', ...
         availDesc, cfg.qcMaxSLPS, qc.useA7);
+    if any(noQC)
+        fprintf('  QC 미평가 신설국 %d국 컷 면제(정상 운영 판정): %s\n', ...
+            nnz(noQC), strjoin(names(noQC)', ', '));
+    end
     cutA = find(~availOK);
     fprintf('  Availability cut-off %d국: %s\n', numel(cutA), ...
         strjoin(compose("%s(%.2f)", names(cutA), a(cutA))', ', '));

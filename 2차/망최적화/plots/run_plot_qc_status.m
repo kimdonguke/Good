@@ -32,8 +32,10 @@ isB = false(N,1); isB(R.boundarySpec) = true;
 cfg = net_config();
 qc = qc_rules(T, cfg);
 
-availCut = ~((qc.avail > 0) & (qc.avail >= qc.availThr));   % 유효 임계 기준 (0=미제공 포함)
-slpsCut  = ~availCut & ~(qc.slps < cfg.qcMaxSLPS);
+noQC = false(N,1);
+if isfield(qc, 'noQC'); noQC = qc.noQC; end        % 신설 QC 미평가국 (컷 면제)
+availCut = ~((qc.avail > 0) & (qc.avail >= qc.availThr)) & ~noQC;   % 유효 임계 기준 (0=미제공 포함)
+slpsCut  = ~availCut & ~(qc.slps < cfg.qcMaxSLPS) & ~noQC;
 cand = ~isB & qc.refOK & ~isnan(qc.score);
 Sbar = mean(qc.score(cand));
 
@@ -41,8 +43,8 @@ bExempt     = isB & (availCut | slpsCut);          % 외곽 고정 예외 (QC �
 forcedAvail = availCut & ~isB;                     % Availability cut 전환
 forcedSlps  = slpsCut  & ~isB;                     % SLPS cut 전환
 lowScoreRef = isRef & cand & qc.score < Sbar;      % 선택 기준국 중 개별 Score < S̄
-normRef = isRef & ~bExempt & ~lowScoreRef;
-normMon = ~isRef & ~forcedAvail & ~forcedSlps;
+normRef = isRef & ~bExempt & ~lowScoreRef & ~noQC;
+normMon = ~isRef & ~forcedAvail & ~forcedSlps & ~noQC;
 
 fprintf('S_bar(후보 평균 Score) = %.3f / 선택 기준국 평균 = %.3f\n', ...
     Sbar, mean(qc.score(isRef & cand)));
@@ -50,6 +52,10 @@ fprintf('외곽 예외 %d: %s\n', nnz(bExempt), strjoin(compose("%s(a%.2f/s%.1f)
 fprintf('Avail 전환 %d: %s\n', nnz(forcedAvail), strjoin(compose("%s(%.2f)", names(forcedAvail), qc.avail(forcedAvail))', ', '));
 fprintf('SLPS 전환 %d: %s\n', nnz(forcedSlps), strjoin(compose("%s(%.1f)", names(forcedSlps), qc.slps(forcedSlps))', ', '));
 fprintf('S_bar 미만 기준국 %d: %s\n', nnz(lowScoreRef), strjoin(compose("%s(%.3f)", names(lowScoreRef), qc.score(lowScoreRef))', ', '));
+if any(noQC)
+    fprintf('신설 QC 미평가 %d: %s (기준국 %d / 감시국 %d)\n', nnz(noQC), ...
+        strjoin(names(noQC)', ', '), nnz(noQC & isRef), nnz(noQC & ~isRef));
+end
 
 %% 지도 (960x720 표준)
 fig = figure('Name','qc_station_status','Color','w','Position',[80 80 960 720]);
@@ -85,9 +91,14 @@ lbl{end+1} = sprintf('감시국 전환 — Availability<%.2f (%d개소)', qc.ava
 hh(end+1,1) = geoplot(gx, lat(forcedSlps), lon(forcedSlps), 'v', 'MarkerEdgeColor', 'k', ...
     'MarkerFaceColor', [0.8 0.45 0.65], 'MarkerSize', 7, 'LineStyle', 'none');
 lbl{end+1} = sprintf('감시국 전환 — SLPS>=%g (%d개소)', cfg.qcMaxSLPS, nnz(forcedSlps));
+if any(noQC)
+    hh(end+1,1) = geoplot(gx, lat(noQC), lon(noQC), 'd', 'MarkerEdgeColor', 'k', ...
+        'MarkerFaceColor', [0.2 0.7 0.3], 'MarkerSize', 7, 'LineStyle', 'none');
+    lbl{end+1} = sprintf('신설국 — QC 미평가·정상 운영 판정 (%d개소)', nnz(noQC));
+end
 
 % QC 관련 국 코드 라벨
-flag = bExempt | forcedAvail | forcedSlps | lowScoreRef;
+flag = bExempt | forcedAvail | forcedSlps | lowScoreRef | noQC;
 for k = find(flag)'
     text(gx, lat(k)+0.07, lon(k)+0.05, names(k), 'FontSize', 7.5, 'Color', [0.15 0.15 0.15]);
 end
