@@ -63,24 +63,32 @@ for i = 1:numel(gray_tri)               % 회색: 미감시
     n = CL(gray_tri(i),:);
     geoplot(gx, geopolyshape([latR(n);latR(n(1))],[lonR(n);lonR(n(1))]),'k','EdgeColor','k','HandleVisibility','off');
 end
+hCellMon = gobjects(0);  hCellExt = gobjects(0);
 for i = 1:numel(cells_ours)             % 빨강: 우리 감시국 커버
     n = CL(cells_ours(i),:);
-    geoplot(gx, geopolyshape([latR(n);latR(n(1))],[lonR(n);lonR(n(1))]),'EdgeColor','k','LineWidth',0.5,'FaceColor','r','FaceAlpha',0.30,'HandleVisibility','off');
+    h = geoplot(gx, geopolyshape([latR(n);latR(n(1))],[lonR(n);lonR(n(1))]),'EdgeColor','k','LineWidth',0.5,'FaceColor','r','FaceAlpha',0.30,'HandleVisibility','off');
+    if i == 1; hCellMon = h; end
 end
 for i = 1:numel(cells_corsOnly)         % 초록: CORS 추가 커버
     n = CL(cells_corsOnly(i),:);
-    geoplot(gx, geopolyshape([latR(n);latR(n(1))],[lonR(n);lonR(n(1))]),'EdgeColor','k','LineWidth',0.5,'FaceColor',[0 0.7 0.3],'FaceAlpha',0.45,'HandleVisibility','off');
+    h = geoplot(gx, geopolyshape([latR(n);latR(n(1))],[lonR(n);lonR(n(1))]),'EdgeColor','k','LineWidth',0.5,'FaceColor',[0 0.7 0.3],'FaceAlpha',0.45,'HandleVisibility','off');
+    if i == 1; hCellExt = h; end
 end
 E = edges(DT);
 lat_e = [latR(E(:,1)), latR(E(:,2)), NaN(size(E,1),1)]';
 lon_e = [lonR(E(:,1)), lonR(E(:,2)), NaN(size(E,1),1)]';
 geoplot(gx, lat_e(:), lon_e(:), 'k-','LineWidth',0.5,'HandleVisibility','off');
-geoplot(gx, latR, lonR, 'ks','MarkerFaceColor','y','MarkerSize',6);
-geoplot(gx, latM, lonM, 'k^','MarkerFaceColor','b','MarkerSize',5);
-geoplot(gx, cors_lat, cors_lon, 'kv','MarkerFaceColor','m','MarkerSize',7);
-legend(gx, {'기준국','우리 감시국','타기관 CORS'}, 'Location','northeast');
-title(gx, {sprintf('[%s] 통합 감시 커버리지 %.0f km^2 (우리 %.0f + CORS추가 %.0f)', R.method, areaUnion, areaOurs, areaCorsAdd), ...
-           '빨강=우리 감시국 커버, 초록=타기관 CORS 추가 커버'});
+hh = gobjects(3,1);
+hh(1) = geoplot(gx, latR, lonR, 'ks','MarkerFaceColor','y','MarkerSize',6);
+hh(2) = geoplot(gx, latM, lonM, 'k^','MarkerFaceColor','b','MarkerSize',5);
+hh(3) = geoplot(gx, cors_lat, cors_lon, 'kv','MarkerFaceColor','m','MarkerSize',7);
+lbl = {sprintf('기준국 (%d개소)', R.nRef), sprintf('감시국 (%d개소)', R.nMon), ...
+       sprintf('타기관 CORS (%d개소)', numel(cors_lat))};
+cellH = gobjects(0,1);  cellL = {};
+if ~isempty(hCellMon); cellH(end+1,1) = hCellMon; cellL{end+1} = '감시가능 셀 (감시국)'; end
+if ~isempty(hCellExt); cellH(end+1,1) = hCellExt; cellL{end+1} = '추가 감시가능 셀 (타기관 CORS)'; end
+legend(gx, [hh; cellH], [lbl(:); cellL(:)], 'Location','northeast');
+title(gx, sprintf('통합 감시 커버리지 — %s 최적망 + 타기관 CORS', upper(R.method)));
 geolimits(gx, [33 39], [125 132]); hold(gx,'off');
 
 % ---- PNG 자동 저장 (result_fig/04_외부상설감시국) ----

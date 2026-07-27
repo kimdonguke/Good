@@ -73,6 +73,5 @@ fprintf('===============================================\n\n');
 
 %% 6) 시각화 — 표준 지도 (plots/plot_net_map.m 공용)
 plot_net_map(lon, lat, isRef, ...
-    sprintf('최적 감시망 구성 (ILP) — 기준국 %d, 감시국 %d, 감시가능 면적 %.0f km^2', ...
-            sum(isRef), sum(~isRef), aI), 'ILP 면적 최대화 (전역최적)', qc.monOK);
+    '최적 감시망 구성 — ILP (전역최적)', 'ILP 면적 최대화 (전역최적)', qc.monOK);
 toc

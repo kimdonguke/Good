@@ -44,7 +44,9 @@ function [fig, gx] = plot_net_map(lon, lat, isRef, ttl, figName, monOK)
 
     geoplot(gx, latR, lonR, 'ks','MarkerFaceColor','y','MarkerSize',6);
     geoplot(gx, latM, lonM, 'k^','MarkerFaceColor','b','MarkerSize',5);
-    legend(gx, {'기준국(Reference)','감시국(Monitor)'}, 'Location','northeast');
+    % 개수는 legend가 담당 (타이틀 규약: 제목 = 주제·조건만, 산출 통계 제외)
+    legend(gx, {sprintf('기준국 (%d개소)', nnz(isRef)), ...
+                sprintf('감시국 (%d개소)', nnz(~isRef))}, 'Location','northeast');
     title(gx, ttl);
     geolimits(gx, [33 39], [125 131]);
     hold(gx,'off');

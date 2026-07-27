@@ -57,8 +57,7 @@ fprintf('==========================================\n\n');
 
 %% 6) 시각화 — 표준 지도 (plots/plot_net_map.m 공용)
 plot_net_map(lon, lat, isRef, ...
-    sprintf('감시가능망 면적 최대화 (그리디) — 기준국 %d, 감시국 %d, %.0f km^2', ...
-            sum(isRef), sum(~isRef), aG), '그리디 면적 최대화', qc.monOK);
+    '감시가능망 구성 — 그리디', '그리디 면적 최대화', qc.monOK);
 
 % 수렴 곡선 (기준국 수 감소 vs 유효면적 증가)
 figure('Name','그리디 수렴 곡선','Color','w','Position',[80 80 960 720]);

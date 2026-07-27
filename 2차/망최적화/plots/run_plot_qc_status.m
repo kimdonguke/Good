@@ -112,7 +112,7 @@ for k = find(flag)'
 end
 
 legend(gx, hh, lbl, 'Location', 'northeast', 'FontSize', 8);
-title(gx, sprintf('QC 기준국 선별 상태 (maxBaseKm=%g) — cut-off 전환·외곽 예외·평균 품질 미만 기준국', R.maxBaseKm));
+title(gx, sprintf('QC 기준국 선별 상태 — 기선 상한 %g km', R.maxBaseKm));
 geolimits(gx, [33 39], [125 132]); hold(gx, 'off');
 
 figSave = fullfile(optDir, 'result_fig', '01_망설계');

@@ -88,18 +88,15 @@ fprintf('상세 통계(3열 표·기선장 분포): plots/run_stats.m 실행\n\n
 figDir = fullfile(thisDir, 'result_fig', '01_망설계');
 if ~isfolder(figDir); mkdir(figDir); end
 [fG, ~] = plot_net_map(lon, lat, isRefG, ...
-    sprintf('감시가능망 면적 최대화 (그리디) — 기준국 %d, 감시국 %d, %.0f km^2', ...
-            sum(isRefG), sum(~isRefG), aG), '그리디 (비교 기준)', qc.monOK);
+    '감시가능망 구성 — 그리디 (비교 기준)', '그리디 (비교 기준)', qc.monOK);
 [fI, ~] = plot_net_map(lon, lat, isRefI, ...
-    sprintf('최적 감시망 구성 (ILP) — 기준국 %d, 감시국 %d, 감시가능 면적 %.0f km^2', ...
-            sum(isRefI), sum(~isRefI), aI), 'ILP (전역최적)', qc.monOK);
+    '최적 감시망 구성 — ILP (전역최적)', 'ILP (전역최적)', qc.monOK);
 
 fB = figure('Name','면적 비교','Color','w','Position',[80 80 960 720]);
 vals = [aG, aI, infoI.lpBound_km2];
 bar(categorical({'그리디','ILP최적','LP상한'},{'그리디','ILP최적','LP상한'}), vals, 0.5);
 ylabel('감시가능망 면적 (km^2)'); grid on;
-title({'감시가능 면적 비교 — Greedy, ILP, LP 상한', ...
-       sprintf('Greedy/ILP = %.1f%%,  ILP/상한 = %.1f%%', 100*aG/aI, 100*aI/infoI.lpBound_km2)});
+title('감시가능 면적 비교 — 그리디 · ILP · LP 상한');
 text(1:3, vals, compose('%.0f',vals), 'HorizontalAlignment','center','VerticalAlignment','bottom');
 
 drawnow;

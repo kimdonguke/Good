@@ -301,8 +301,8 @@ print(fig2, fullfile(figDir, 'validation_error.png'), '-dpng', '-r200');
 okO = common & EoldG.valid;  okN = common & EnewG.valid;
 cl = [0, prctile_local([EoldG.H95cm(okO); EnewG.H95cm(okN)], 99)];
 mapFile = {'validation_error_map_old.png', 'validation_error_map_new.png'};
-mapTtl = {sprintf('기존 망 (%d개소) — 평균 %.2f cm', numel(latAll), SoldG.avgH), ...
-          sprintf('최적화 망 (%d개소) — 평균 %.2f cm', nnz(isRef), SnewG.avgH)};
+mapTtl = {sprintf('기존 망 (%d개소)', numel(latAll)), ...
+          sprintf('최적화 망 (%d개소)', nnz(isRef))};
 for k = 1:2
     fig3 = figure('Name','validation_error_map','Position',[100 100 960 720],'Color','w');
     gx = geoaxes(fig3);
@@ -398,8 +398,8 @@ function plot_exceed_fig(figFile, Eold, Enew, glat, glon, latAll, lonAll, isRef,
         geoplot(gx, [glat(hExc);  NaN], [glon(hExc);  NaN], '.', 'Color', RED,  'MarkerSize', 6);
         geoplot(gx, refLatK, refLonK, 'k^', 'MarkerSize', 4, 'MarkerFaceColor', 'k');
         geolimits(gx, [33 39], [125 131]);
-        title(gx, {sprintf('요구 성능 미달 지점 분포 — 기준국 선택: %s', ruleLabel), ...
-                   sprintf('%s — 요구 성능 미달 %d점 (%.2f%%)', netName, nExc, 100*nExc/nnz(common))});
+        fprintf('  [exceed/%s] %s: 미달 %d점 (%.2f%%)\n', ruleLabel, netName, nExc, 100*nExc/nnz(common));
+        title(gx, {sprintf('요구 성능 미달 지점 분포 — 기준국 선택: %s', ruleLabel), netName});
         legend(gx, {'요구 성능 만족', sprintf('수직 한계 초과 (>%g cm)', verLim), ...
                     sprintf('수평 한계 초과 (>%g cm)', horLim), '기준국'}, 'Location', 'northeast');
         print(fig, fullfile(fDir, [fBase sfx{k} fExt]), '-dpng', '-r200');

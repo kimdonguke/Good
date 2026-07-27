@@ -77,7 +77,7 @@ fprintf('=======================================\n\n');
 %% 히트맵 시각화
 figure('Name','파라미터 스윕 요약','Color','w','Position',[100 100 1100 420]);
 tl = tiledlayout(1,2,'TileSpacing','compact','Padding','compact');
-title(tl,'감시가능망 면적 최대화 - 파라미터 스윕 (30 조합)');
+title(tl,'감시가능 면적 파라미터 스윕 — 기선 상한 × 외곽 축소');
 
 nexttile;
 imagesc(1:nKm, 1:nSh, AREA); axis xy; colorbar; colormap(gca,'parula');

@@ -240,8 +240,8 @@ Sd_o = So{DESIGN,1};  Sd_n = Sn{DESIGN,1};
 okO = common & Ed_o.valid;  okN = common & Ed_n.valid;
 cl = [0, prctile_local([Ed_o.H95cm(okO); Ed_n.H95cm(okN)], 99)];
 mapFile = {'validation_lsc_map_old.png', 'validation_lsc_map_new.png'};
-mapTtl = {sprintf('기존 망 (%d개소) — 평균 %.2f cm', numel(latAll), Sd_o.avgH), ...
-          sprintf('최적화 망 (%d개소) — 평균 %.2f cm', nnz(isRef), Sd_n.avgH)};
+mapTtl = {sprintf('기존 망 (%d개소)', numel(latAll)), ...
+          sprintf('최적화 망 (%d개소)', nnz(isRef))};
 for k = 1:2
     fig2 = figure('Name','validation_lsc_map','Position',[100 100 960 720],'Color','w');
     gx = geoaxes(fig2);
@@ -259,8 +259,8 @@ for k = 1:2
     end
     geolimits(gx, [33 39], [125 131]);
     clim(gx, cl); colorbar(gx);
-    title(gx, {sprintf('수평 측위오차 예측치 (95%%) [cm] — 전역 LSC, %s 시나리오 (%.1f ppm, L=%d km)', ...
-        SCEN(DESIGN).name, SCEN(DESIGN).ppmEN, SCEN(DESIGN).Lkm), mapTtl{k}});
+    title(gx, {sprintf('수평 측위오차 예측치 (95%%) [cm] — 전역 LSC, %s 시나리오', ...
+        SCEN(DESIGN).name), mapTtl{k}});
     print(fig2, fullfile(figDir, mapFile{k}), '-dpng', '-r200');
 end
 
@@ -291,7 +291,7 @@ for pnl = 1:2
             'HorizontalAlignment', 'center', 'VerticalAlignment', 'bottom', 'FontSize', 8);
     end
 end
-sgtitle(sprintf('전리층 활동도 시나리오별 유계 만족율 — 전역 LSC (공통 도메인 %d점, 잠정 계수)', nnz(common)));
+sgtitle('전리층 활동도 시나리오별 유계 만족율 — 전역 LSC');
 print(fig4, fullfile(figDir, 'validation_lsc_scen.png'), '-dpng', '-r200');
 
 fprintf('figure 저장: validation_lsc_cdf/scen.png + map/exceed 각 _old/_new (지도 1개/figure)\n');
@@ -356,8 +356,8 @@ function plot_exceed_fig(figFile, Eold, Enew, glat, glon, latAll, lonAll, isRef,
         geoplot(gx, [glat(hExc);  NaN], [glon(hExc);  NaN], '.', 'Color', RED,  'MarkerSize', 6);
         geoplot(gx, refLatK, refLonK, 'k^', 'MarkerSize', 4, 'MarkerFaceColor', 'k');
         geolimits(gx, [33 39], [125 131]);
-        title(gx, {sprintf('요구 성능 미달 지점 분포 — %s', ruleLabel), ...
-                   sprintf('%s — 요구 성능 미달 %d점 (%.2f%%)', netName, nExc, 100*nExc/nnz(common))});
+        fprintf('  [exceed] %s: 미달 %d점 (%.2f%%)\n', netName, nExc, 100*nExc/nnz(common));
+        title(gx, {sprintf('요구 성능 미달 지점 분포 — %s', ruleLabel), netName});
         legend(gx, {'요구 성능 만족', sprintf('수직 한계 초과 (>%g cm)', verLim), ...
                     sprintf('수평 한계 초과 (>%g cm)', horLim), '기준국'}, 'Location', 'northeast');
         print(fig, fullfile(fDir, [fBase sfx{k} fExt]), '-dpng', '-r200');

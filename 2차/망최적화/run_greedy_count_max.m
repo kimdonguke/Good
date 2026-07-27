@@ -69,7 +69,7 @@ geoplot(gx, lat_e(:), lon_e(:), 'k-','LineWidth',0.5,'HandleVisibility','off');
 geoplot(gx, latR, lonR, 'ks','MarkerFaceColor','y','MarkerSize',6);
 geoplot(gx, latM, lonM, 'k^','MarkerFaceColor','b','MarkerSize',5);
 legend(gx, {'기준국(Reference)','감시국(Monitor)'}, 'Location','northeast');
-title(gx, sprintf('감시가능망 개수 최대화 (유효셀 %d개 / 기준국 %d, 감시국 %d)', nCells, nRef, nMon));
+title(gx, '감시가능망 개수 최대화 — 그리디');
 geolimits(gx, [33 39], [125 131]); hold(gx,'off');
 
 %% 수렴 곡선 (기준국 수 vs 유효셀 개수)

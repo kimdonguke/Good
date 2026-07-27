@@ -76,7 +76,7 @@ writetable(T, fullfile(optDir,'stats_result.csv'));
 %% 플롯 A: 4패널 (초기/그리디/ILP)
 fA = figure('Name','망 최적화 통계','Color','w','Position',[80 80 1200 900]);
 tl = tiledlayout(2,2,'TileSpacing','compact','Padding','compact');
-title(tl,sprintf('망 최적화 결과 분석 (초기 / 그리디 / ILP, 초기>%dkm 기선 제외)', maxBaseKm));
+title(tl,sprintf('망 최적화 결과 분석 — 초기 · 그리디 · ILP (기선 상한 %d km)', maxBaseKm));
 
 nexttile; hold on;   % 기선장 히스토그램
 histogram(Sb.baselines_ex,'BinWidth',10,'FaceColor',[0.4 0.6 0.9],'FaceAlpha',0.45,'DisplayName',sprintf('초기(%d)',N));
@@ -122,8 +122,9 @@ patch('Faces',CLp(Si.validCells,:),'Vertices',[lonRp latRp],'FaceColor',[1 0.35 
 plot(lonRp,latRp,'ks','MarkerFaceColor','y','MarkerSize',7);
 plot(Si.lonM,Si.latM,'k^','MarkerFaceColor','b','MarkerSize',6);
 xlabel('경도(°)'); ylabel('위도(°)'); grid on;
-legend({'전체 셀','유효셀','기준국','감시국'},'Location','northeast');
-title(sprintf('[ILP] 커버리지 (기준국 %d, 감시국 %d, %.0f km^2)', Si.nRef, Si.nMon, Si.coverage_km2));
+legend({'전체 셀','유효셀', sprintf('기준국 (%d개소)', Si.nRef), ...
+        sprintf('감시국 (%d개소)', Si.nMon)},'Location','northeast');
+title('감시 커버리지 — ILP 최적망');
 xlim([124.5 130.5]); ylim([33.5 38.8]); hold off;
 
 % ---- 플롯 B 즉시 저장 ----

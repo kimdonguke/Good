@@ -133,8 +133,7 @@ cellH = gobjects(0,1);  cellL = {};
 if ~isempty(hCellMon); cellH(end+1,1) = hCellMon; cellL{end+1} = '감시가능 셀 (감시국)'; end
 if ~isempty(hCellExt); cellH(end+1,1) = hCellExt; cellL{end+1} = '추가 감시가능 셀 (외부 상설감시국)'; end
 legend(gx, [hh; cellH], [lbl(:); cellL(:)], 'Location','northeast');
-title(gx, sprintf('최적화 망(기준국 %d·감시국 %d)과 기관별 외부 상설 감시국 %d개소', ...
-      R.nRef, R.nMon, height(ext)));
+title(gx, '최적화 망과 기관별 외부 상설 감시국');
 geolimits(gx, [33 39], [125 132]); hold(gx,'off');
 
 % ---- PNG 자동 저장 (result_fig/04_외부상설감시국) ----
