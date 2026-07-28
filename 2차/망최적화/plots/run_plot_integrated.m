@@ -1,6 +1,8 @@
-%% 통합 감시 커버리지 = (우리 감시국) ∪ (타기관 상시관측소 CORS)
+%% 통합 감시 커버리지 = (우리 감시국) ∪ (타기관 상설감시국 CORS)
 %  저장된 결과(result_ilp.mat / result_greedy.mat)를 로드해서 실행.
 %  빨강 = 우리 감시국 커버 셀,  초록 = 타기관 CORS 추가 커버 셀,  회색 = 미감시.
+%  타기관 데이터 = load_cors_external (고시 xlsx) — run_plot_cors 와 단일 출처.
+%  (구 cors_stations.m 하드코딩 38국은 legacy — 산출 그림 간 불일치 원인이라 대체)
 close all; clear; clc;
 
 % ---- 프로젝트 경로 자동 설정 ----
@@ -26,16 +28,21 @@ if ~isfile(resultFile)
     error(['결과 파일이 없습니다:\n  %s\n먼저 run_ilp_area_max.m (또는 run_greedy_area_max.m)을 실행하세요.'], resultFile);
 end
 Rr = load(resultFile); R = Rr.R;
-lon = R.lon; lat = R.lat; isRef = R.isRef;
+lon = R.lon; lat = R.lat; isRef = logical(R.isRef);
 lonR = lon(isRef);  latR = lat(isRef);
 lonM = lon(~isRef); latM = lat(~isRef);          % 우리 감시국
 DT = delaunayTriangulation(lonR, latR); CL = DT.ConnectivityList;
 
-%% 타기관 상시관측소(CORS)
-[cors_lat, cors_lon] = cors_stations();
+%% 타기관 상설감시국(CORS) — 고시 xlsx 단일 출처 (외부 기관만)
+C = load_cors_external();
+ext = C(C.agency ~= "국토지리정보원", :);
+cors_lat = ext.lat;  cors_lon = ext.lon;
 
-%% 셀 배정 (두 감시원)
-tri_ours = pointLocation(DT, lonM, latM);         tri_ours = tri_ours(~isnan(tri_ours));
+%% 셀 배정 (두 감시원) — 유효셀 판정은 QC 감시 인정 마스크(monOK) 적용
+monOK = true(numel(lon),1);
+if isfield(R, 'monOK'); monOK = logical(R.monOK(:)); end
+lonMv = lon(~isRef & monOK); latMv = lat(~isRef & monOK);
+tri_ours = pointLocation(DT, lonMv, latMv);       tri_ours = tri_ours(~isnan(tri_ours));
 tri_cors = pointLocation(DT, cors_lon, cors_lat); corsIn = ~isnan(tri_cors); tri_cors = tri_cors(corsIn);
 cells_ours     = unique(tri_ours);                 % 우리 감시국 커버 셀
 cells_cors     = unique(tri_cors);                 % 타기관 CORS 커버 셀
@@ -57,23 +64,19 @@ fprintf('  → 타기관 CORS로 추가 확보: %.0f km^2 (우리 대비 +%.1f%%
 fprintf('=================================================\n\n');
 
 %% 플롯 (geobasemap 지형도)
-figure('Name','통합 감시 커버리지','Color','w','Position',[80 80 960 720]);
-gx = geoaxes; geobasemap(gx,'topographic'); hold(gx,'on');
-for i = 1:numel(gray_tri)               % 회색: 미감시
-    n = CL(gray_tri(i),:);
-    geoplot(gx, geopolyshape([latR(n);latR(n(1))],[lonR(n);lonR(n(1))]),'k','EdgeColor','k','HandleVisibility','off');
+fig = figure('Name','통합 감시 커버리지','Color','w','Position',[80 80 960 720]);
+gx = geoaxes(fig);
+try
+    geobasemap(gx,'topographic');   % 오프라인/헤드리스에서는 기본 축으로 대체
+catch
 end
-hCellMon = gobjects(0);  hCellExt = gobjects(0);
-for i = 1:numel(cells_ours)             % 빨강: 우리 감시국 커버
-    n = CL(cells_ours(i),:);
-    h = geoplot(gx, geopolyshape([latR(n);latR(n(1))],[lonR(n);lonR(n(1))]),'EdgeColor','k','LineWidth',0.5,'FaceColor','r','FaceAlpha',0.30,'HandleVisibility','off');
-    if i == 1; hCellMon = h; end
-end
-for i = 1:numel(cells_corsOnly)         % 초록: CORS 추가 커버
-    n = CL(cells_corsOnly(i),:);
-    h = geoplot(gx, geopolyshape([latR(n);latR(n(1))],[lonR(n);lonR(n(1))]),'EdgeColor','k','LineWidth',0.5,'FaceColor',[0 0.7 0.3],'FaceAlpha',0.45,'HandleVisibility','off');
-    if i == 1; hCellExt = h; end
-end
+hold(gx,'on');
+% 셀 렌더: 색 클래스별 NaN 구분 멀티리전 geopolyshape 1개 (셀별 geoplot 반복 제거)
+plot_cells_batch(gx, latR, lonR, CL(gray_tri,:), 'k','EdgeColor','k','HandleVisibility','off');   % 회색: 미감시
+hCellMon = plot_cells_batch(gx, latR, lonR, CL(cells_ours,:), ...      % 빨강: 우리 감시국 커버
+    'EdgeColor','k','LineWidth',0.5,'FaceColor','r','FaceAlpha',0.3,'HandleVisibility','off');
+hCellExt = plot_cells_batch(gx, latR, lonR, CL(cells_corsOnly,:), ...  % 초록: CORS 추가 커버 (관례색 [0 0.7 0.2]·α0.3)
+    'EdgeColor','k','LineWidth',0.5,'FaceColor',[0 0.7 0.2],'FaceAlpha',0.3,'HandleVisibility','off');
 E = edges(DT);
 lat_e = [latR(E(:,1)), latR(E(:,2)), NaN(size(E,1),1)]';
 lon_e = [lonR(E(:,1)), lonR(E(:,2)), NaN(size(E,1),1)]';
@@ -95,8 +98,19 @@ geolimits(gx, [33 39], [125 132]); hold(gx,'off');
 figSave = fullfile(optDir,'result_fig','04_외부상설감시국');
 if ~isfolder(figSave); mkdir(figSave); end
 drawnow;
-exportgraphics(gcf, fullfile(figSave, sprintf('integrated_coverage_%s.png', R.method)), 'Resolution', 200);
+exportgraphics(fig, fullfile(figSave, sprintf('integrated_coverage_%s.png', R.method)), 'Resolution', 200);
 fprintf('그림 저장: %s\n', fullfile(figSave, sprintf('integrated_coverage_%s.png', R.method)));
+
+% ======================================================================
+function h = plot_cells_batch(gx, latR, lonR, CLsub, varargin)
+% 삼각형 셀 집합을 geopolyshape 객체 배열 + geoplot 1회로 렌더 (셀별 geoplot 반복 제거)
+%   NaN 멀티리전 1개 합치기는 변 공유 삼각형이 even-odd 구멍 처리(체커보드) — 금지.
+    h = gobjects(0);
+    if isempty(CLsub); return; end
+    shp = arrayfun(@(i) geopolyshape([latR(CLsub(i,:)); latR(CLsub(i,1))], ...
+                                     [lonR(CLsub(i,:)); lonR(CLsub(i,1))]), (1:size(CLsub,1))');
+    h = geoplot(gx, shp, varargin{:});
+end
 
 % ======================================================================
 function A = cellAreaWgs(CL, cells, lonR, latR)

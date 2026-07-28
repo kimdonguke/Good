@@ -32,6 +32,12 @@ cfg = net_config();
 maxBaseKm = cfg.maxBaseKm;
 bnd = outer_ring(lon, lat, cfg.nOuter);   % 명시적 외곽 고정 노드 인덱스
 if isfield(cfg, 'outerForce') && ~isempty(cfg.outerForce)
+    missF = setdiff(string(cfg.outerForce), string(names));
+    if ~isempty(missF)   % 무경고 무시 시 원인 추적 불가한 'ILP 비실현'으로만 나타남
+        error('run_ilp_area_max:outerForceMiss', ...
+            'cfg.outerForce 국이 데이터셋에 없습니다: %s (오타 또는 load_stations status 필터 확인)', ...
+            strjoin(missF, ', '));
+    end
     bnd = unique([bnd(:); find(ismember(names, cfg.outerForce))]);   % 강제 보완국 합집합
 end
 fprintf('실험 조건: maxBaseKm=%g km, 최외곽 고정 %d개\n', maxBaseKm, numel(bnd));

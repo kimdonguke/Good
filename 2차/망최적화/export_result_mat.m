@@ -11,7 +11,7 @@ function [outFile, stations] = export_result_mat(resultFile)
 %     lat    : 위도 (십진도, WGS84)
 %     lon    : 경도 (십진도, WGS84)
 %     height : 타원체고 (m)
-%     proj   : 투영원점 (서부/중부/동부)
+%     proj   : 투영원점 (서부/중부/동부/동해)
 
 % ---- 프로젝트 경로 자동 설정 ----
 thisDir = fileparts(mfilename('fullpath'));
@@ -32,7 +32,8 @@ N = numel(R.lon);
 [~, ~, ~, Tst] = load_stations();
 [tf, loc] = ismember(string(R.names(:)), string(Tst.RINEX));
 if ~all(tf)
-    error('shp 속성에서 찾지 못한 관측소 코드: %s', strjoin(cellstr(R.names(~tf)), ', '));
+    error('관측소 속성(stations_ngii.mat)에서 찾지 못한 코드: %s (stale 결과 파일 가능 — run_ilp_area_max 재실행)', ...
+        strjoin(cellstr(R.names(~tf)), ', '));
 end
 
 code   = string(R.names(:));

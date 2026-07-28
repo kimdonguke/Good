@@ -42,6 +42,15 @@ end
 L = load(matFile);
 T = L.S;
 
+% 신선도 확인: 소스 xlsx(고시 좌표/QC)가 mat보다 새로우면 재생성 필요 — stale 전파 방지
+matInfo = dir(matFile);
+srcInfo = [dir(fullfile(projectRoot, 'Data', 'CORS_coordinate_최종본.xlsx')); ...
+           dir(fullfile(projectRoot, 'Data', 'NGII_daily_QC_*.xlsx'))];
+if ~isempty(srcInfo) && any([srcInfo.datenum] > matInfo.datenum)
+    warning('load_stations:stale', ...
+        'stations_ngii.mat 가 소스 xlsx보다 오래되었습니다 — make_stations_ngii 재실행 필요.');
+end
+
 switch lower(string(mode))
     case "design"
         T = T(T.status == "ok", :);

@@ -241,7 +241,7 @@ function [isRef, info] = ilp_area_max(lon, lat, maxBaseKm, boundaryShrink, qc)
     % ---- ILP + no-good 컷 외부루프 (100km 실현가능성 보증) ----
     ipOpts = optimoptions('intlinprog','Display','iter','MaxTime',600,'RelativeGapTolerance',1e-4);   % 200→600 (탐색공간 확대 대응, 3배)
     Ang = sparse(0,nz); bng = zeros(0,1);
-    isRef = isBoundary; iters = 0; ilpObj = NaN; ilpGap = NaN;
+    isRef = isBoundary; iters = 0; ilpObj = NaN; ilpGap = NaN; feas = false;
     for iter = 1:2
         iters = iter; tIt = tic;
         [z,fval,ef,out] = intlinprog(f, intcon, [A;Ang], [b_ineq;bng], [], [], lb, ub, ipOpts);
@@ -259,6 +259,11 @@ function [isRef, info] = ilp_area_max(lon, lat, maxBaseKm, boundaryShrink, qc)
         if feas; break; end
         row = sparse(1,nz); row(1,R)=1; row(1,setdiff((1:N)',R))=-1;   % no-good: 이 R 금지
         Ang = [Ang; row]; bng = [bng; numel(R)-1]; %#ok<AGROW>
+    end
+    if ~isnan(ilpObj) && ~feas
+        % no-good 컷 반복 한도 내 실현해 미확보 — 기선 위반 해를 유효 결과로 반환하지 않음
+        plog('[ILP] 경고: no-good 컷 한도 내 기선 실현해 미확보 → 결과 무효(infeasible) 처리');
+        ilpObj = NaN;
     end
     plog(sprintf('[ILP] 완료: 총 %.1fs, no-good %d회', toc(tAll), iters));
 

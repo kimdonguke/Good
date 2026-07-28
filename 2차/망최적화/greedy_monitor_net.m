@@ -41,6 +41,16 @@ function [isRef, info] = greedy_monitor_net(lon, lat, maxBaseKm, boundaryShrink,
     len0 = deg2km(distance(lat(E0(:,1)), lon(E0(:,1)), lat(E0(:,2)), lon(E0(:,2))));
     grandPairs = sort(E0(len0 > maxBaseKm, :), 2);
 
+    % --- 2a) 조회표 선계산: 구면거리 N×N + grandfather 대칭 논리행렬 ---
+    %   그리디 루프가 후보×스텝마다 재계산하던 distance/ismember 를 1회 계산으로 대체.
+    [J1, J2] = ndgrid(1:N, 1:N);
+    DkmAll = reshape(deg2km(distance(lat(J1(:)), lon(J1(:)), lat(J2(:)), lon(J2(:)))), N, N);
+    grandM = false(N, N);
+    if ~isempty(grandPairs)
+        grandM(sub2ind([N N], grandPairs(:,1), grandPairs(:,2))) = true;
+        grandM(sub2ind([N N], grandPairs(:,2), grandPairs(:,1))) = true;
+    end
+
     % --- 2b) QC 가용성/품질 규칙 (qc_rules.m; ILP와 동일) ---
     refAllowed = true(N,1);  monOK = true(N,1);  a7 = [];
     if ~isempty(qc)
@@ -57,7 +67,7 @@ function [isRef, info] = greedy_monitor_net(lon, lat, maxBaseKm, boundaryShrink,
 
     % --- 3) 초기 상태 (QC 부적격 국은 선제 전환) ---
     isRef = refAllowed;
-    [feas0, Va, Nc] = configMetrics(lon, lat, isRef, maxBaseKm, grandPairs, monOK, a7);
+    [feas0, Va, Nc] = configMetrics(lon, lat, isRef, maxBaseKm, DkmAll, grandM, monOK, a7);
     if ~feas0
         warning('greedy_monitor_net:qcInfeasible', ...
             'QC 선제 전환 직후 상태가 기선 제약을 위반합니다 — 결과 해석에 주의.');
@@ -75,7 +85,7 @@ function [isRef, info] = greedy_monitor_net(lon, lat, maxBaseKm, boundaryShrink,
         for ii = 1:numel(cand)
             x = cand(ii);
             tent = isRef; tent(x) = false;
-            [feas, Va_x, Nc_x] = configMetrics(lon, lat, tent, maxBaseKm, grandPairs, monOK, a7);
+            [feas, Va_x, Nc_x] = configMetrics(lon, lat, tent, maxBaseKm, DkmAll, grandM, monOK, a7);
             if ~feas; continue; end
             g = pick(isArea, Va_x, Nc_x) - cur;
             if g > bestGain
@@ -104,9 +114,9 @@ function v = pick(isArea, a, c)
 end
 
 % ========================================================================
-function [feasible, Varea, Ncells] = configMetrics(lon, lat, isRef, maxBaseKm, grandPairs, monOK, a7)
-    if nargin < 6 || isempty(monOK); monOK = true(numel(lon),1); end
-    if nargin < 7; a7 = []; end
+function [feasible, Varea, Ncells] = configMetrics(lon, lat, isRef, maxBaseKm, DkmAll, grandM, monOK, a7)
+    if nargin < 7 || isempty(monOK); monOK = true(numel(lon),1); end
+    if nargin < 8; a7 = []; end
     % A7 평균 품질 제약 (선택된 후보 기준국 평균 Score >= 후보 평균 S̄)
     if ~isempty(a7)
         sel = isRef(:) & a7.mask;
@@ -120,13 +130,13 @@ function [feasible, Varea, Ncells] = configMetrics(lon, lat, isRef, maxBaseKm, g
     DT = delaunayTriangulation(lonR, latR);
     if isempty(DT.ConnectivityList); feasible = false; Varea = 0; Ncells = 0; return; end
 
-    % (1) 제약
+    % (1) 제약 — 선계산 조회표 사용 (값은 기존 distance/ismember 계산과 동일)
     E = edges(DT);
-    lenKm = deg2km(distance(latR(E(:,1)), lonR(E(:,1)), latR(E(:,2)), lonR(E(:,2))));
+    gi = R(E(:,1)); gj = R(E(:,2));
+    lenKm = DkmAll(sub2ind(size(DkmAll), gi, gj));
     bad = lenKm > maxBaseKm;
     if any(bad)
-        badPairs = sort(R(E(bad,:)), 2);
-        feasible = all(ismember(badPairs, grandPairs, 'rows'));
+        feasible = all(grandM(sub2ind(size(grandM), gi(bad), gj(bad))));
     else
         feasible = true;
     end

@@ -23,7 +23,7 @@
 %   전리층 활동도에 따라 (ppm, L)이 크게 변하므로 정온/활동/폭풍 3점 평가.
 %   수치는 문헌 관례 수준의 잠정값(국내 실측 미적합) — 상대 비교·민감도 해석
 %   용도로 쓰고, 절대 유계 판정의 확정은 국내 적합 후로 미룰 것.
-%   국내 적합 경로: 위성기준점 99개소 leave-one-out 보간 잔차로 (C0, L, n0)
+%   국내 적합 경로: 위성기준점 전 관측소 leave-one-out 보간 잔차로 (C0, L, n0)
 %   직접 추정(신규 관측 불필요, RINEX/보정 데이터 처리 필요) — IDOP·MSD의
 %   α·β 재적합 계획을 대체.
 % [해석 요령]
@@ -119,7 +119,7 @@ w('모델: sigma^2_pred(r) = C(0) - c''(C+n0*I)^-1 c  (reference/report.pdf 식(
 w('규칙: [full] 전역 LSC(BLUP, 주지표) / [tri] 들로네 3국 평면내삽(FKP/VRS 보정면 정합)\n');
 w('공분산: Gaussian C0*exp(-d^2/L^2), 앵커 C0 = (0.1*ppm*L)^2/2 (단일기선 RMS = ppm*d 정합)\n');
 w('95%% 변환: 수평 2DRMS = 2*sqrt(sE^2+sN^2), 수직 1.96*sU / 유계: 수평 %g cm, 수직 %g cm\n', HOR_LIM, VER_LIM);
-w('*** 시나리오 파라미터는 잠정 공학 앵커 — 절대 판정은 국내 적합(99개소 LOO 잔차) 후 확정 ***\n\n');
+w('*** 시나리오 파라미터는 잠정 공학 앵커 — 절대 판정은 국내 적합(전 관측소 LOO 잔차) 후 확정 ***\n\n');
 
 w('[0] 시나리오 정의 (수평축 기준)\n');
 w('  이름   ppm(EN/U)   L[km]   C0EN[cm^2]  포화 sigEN[cm]  포화 H95[cm]  너깃(EN/U)[cm]\n');
@@ -285,7 +285,7 @@ for pnl = 1:2
     b = bar(cats, vals, 0.8);
     b(1).FaceColor = BLU;  b(2).FaceColor = RED;
     ylim([0 105]); ylabel('만족율 [%]'); grid on; title(ttl);
-    legend({'기존 망 (99개소)', sprintf('최적화 망 (%d개소)', nnz(isRef))}, 'Location', 'northeast');
+    legend({sprintf('기존 망 (%d개소)', numel(latAll)), sprintf('최적화 망 (%d개소)', nnz(isRef))}, 'Location', 'northeast');
     for g = 1:2
         text(b(g).XEndPoints, b(g).YEndPoints, compose('%.1f', vals(:,g)'), ...
             'HorizontalAlignment', 'center', 'VerticalAlignment', 'bottom', 'FontSize', 8);

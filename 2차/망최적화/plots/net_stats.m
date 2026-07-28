@@ -52,8 +52,12 @@ function S = net_stats(lon, lat, isRef, maxBaseKm, monOK)
     S.validCells=cells; S.nValidCells=numel(cells); S.nTotalCells=size(CL,1);
     S.redFlag = false(size(CL,1),1); S.redFlag(cells)=true;
 
-    % 셀 면적(평면 투영 km^2)
-    ca = triAreaKm(lonR*kx, latR*ky, CL(cells,:));
+    % 셀 면적(WGS84 타원체 — valid_net_wgs84 와 동일 산식, 공식 보고 수치와 정합)
+    ca = zeros(numel(cells),1);
+    for ci = 1:numel(cells)
+        nd = fliplr(CL(cells(ci),:));
+        ca(ci) = area(geopolyshape([latR(nd); latR(nd(1))], [lonR(nd); lonR(nd(1))]))/1e6;
+    end
     S.cellAreas=ca; S.coverage_km2=sum(ca);
     if isempty(ca); S.cell_mean=0;S.cell_med=0;S.cell_min=0;S.cell_max=0;
     else; S.cell_mean=mean(ca); S.cell_med=median(ca); S.cell_min=min(ca); S.cell_max=max(ca); end
@@ -74,9 +78,3 @@ function S = net_stats(lon, lat, isRef, maxBaseKm, monOK)
     S.cover_vs_korea = 100*S.coverage_km2/S.KOREA_km2;
 end
 
-% ======================================================================
-function A = triAreaKm(X, Y, CL)
-    if isempty(CL); A=zeros(0,1); return; end
-    x1=X(CL(:,1));y1=Y(CL(:,1)); x2=X(CL(:,2));y2=Y(CL(:,2)); x3=X(CL(:,3));y3=Y(CL(:,3));
-    A = 0.5*abs((x2-x1).*(y3-y1)-(x3-x1).*(y2-y1));
-end

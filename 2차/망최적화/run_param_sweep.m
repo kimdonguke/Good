@@ -1,5 +1,7 @@
 %% [B] 파라미터 스윕 - 감시가능망 면적 최대화 그리디 (30 조합)
 %   maxBaseKm(6) x boundaryShrink(5) = 30회 시도, 결과 표/CSV/히트맵 기록.
+%   [legacy] 구 99개소 shp·자체 조건 기준 — 현행 공식 파이프라인(stations_ngii.mat
+%   102국, net_config·outerForce·qc_rules)과 결과 비교 불가. 참고 보존용.
 close all; clear; clc;
 
 % ---- 프로젝트 경로 자동 설정 ----

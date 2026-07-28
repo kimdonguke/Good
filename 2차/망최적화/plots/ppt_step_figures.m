@@ -36,25 +36,21 @@ figDir = fullfile(optDir, 'figure_for_ppt');
 if ~isfolder(figDir); mkdir(figDir); end
 % ---------------------------------
 
-%% 데이터 로드 (위성기준점 99개소)
-rtsStations = struct2table(shaperead('위성기준점(99개소).shp'));
-rtsStations.Properties.VariableNames = {'Geometry','X_proj','Y_proj','FID1','FID2', ...
-    'Name','RINEX','LAT_dms','LON_dms','Height','X1','Y1','Proj','None1','None2'}';
-latParts = cellfun(@(x) str2double(strsplit(x,'-')), rtsStations.LAT_dms, 'UniformOutput', false);
-lonParts = cellfun(@(x) str2double(strsplit(x,'-')), rtsStations.LON_dms, 'UniformOutput', false);
-validDMS = ~cellfun('isempty', latParts) & ~cellfun('isempty', lonParts);
-rtsStations.LAT_deg(validDMS) = cellfun(@(x) dms2deg(x'), latParts(validDMS));
-rtsStations.LON_deg(validDMS) = cellfun(@(x) dms2deg(x'), lonParts(validDMS));
-lon = rtsStations.LON_deg(validDMS);
-lat = rtsStations.LAT_deg(validDMS);
+%% 데이터 로드 (최신 고시 위성기준점, stations_ngii.mat — 공식 파이프라인과 동일 소스)
+[lon, lat, names] = load_stations();
+lon = lon(:); lat = lat(:);
 N = numel(lon);
 
-%% 알고리즘 준비 (한 번만 계산해서 모든 단계가 재사용)
-maxBaseKm = 70;
-bnd = outer_ring(lon, lat, 13);          % 최외곽 13개 고정 (0.5 등 shrink 값도 가능)
+%% 알고리즘 준비 (한 번만 계산해서 모든 단계가 재사용 — 조건은 net_config 단일 소스)
+cfg = net_config();
+maxBaseKm = cfg.maxBaseKm;
+bnd = outer_ring(lon, lat, cfg.nOuter);
+if isfield(cfg, 'outerForce') && ~isempty(cfg.outerForce)
+    bnd = unique([bnd(:); find(ismember(names, cfg.outerForce))]);   % 강제 보완국 합집합
+end
 isBnd = false(N,1); isBnd(bnd) = true;
 
-% grandfather: 초기 전체망의 >100km 기선쌍 (도서 연결 면제)
+% grandfather: 초기 전체망의 >maxBaseKm 기선쌍 (도서 연결 면제)
 DT0 = delaunayTriangulation(lon, lat);
 E0 = edges(DT0);
 len0 = deg2km(distance(lat(E0(:,1)),lon(E0(:,1)),lat(E0(:,2)),lon(E0(:,2))));
@@ -116,11 +112,11 @@ function step1_init(lon, lat, isBnd, figDir)
     % (1a) 노드만 — 입력 데이터
     gx = newMap('1a 기준국 노드');
     geoplot(gx, lat, lon, 'ks', 'MarkerFaceColor','y', 'MarkerSize',6, ...
-        'DisplayName','기준국 (99개소)');
+        'DisplayName', sprintf('기준국 (%d개소)', numel(lat)));
     geoplot(gx, lat(isBnd), lon(isBnd), 'ks', 'MarkerFaceColor',[1 .55 0], 'MarkerSize',7, ...
         'DisplayName','최외곽 기준국 (고정)');
     legend(gx, 'Location','northeast');
-    title(gx, 'STEP 1. 입력: 위성기준점 99개소');
+    title(gx, sprintf('STEP 1. 입력: 위성기준점 %d개소', numel(lat)));
     saveFig(figDir, 'step1a_nodes.png');
 
     % (1b) 들로네 삼각분할 — 망 초기화

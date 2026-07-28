@@ -37,7 +37,7 @@ function M = lsc_model(refLon, refLat, qLon, qLat, mode, P)
     fam = 'gauss';
     if isfield(P, 'family') && ~isempty(P.family); fam = P.family; end
     L = P.Lkm;
-    [C0EN, C0U] = resolve_C0(P, L);
+    [C0EN, C0U] = resolve_C0(P, L, fam);
     sigNEN = field_def(P, 'sigNEN', 0);
     sigNU  = field_def(P, 'sigNU',  0);
 
@@ -83,8 +83,9 @@ function M = lsc_model(refLon, refLat, qLon, qLat, mode, P)
 
     M.mode = mode;  M.P = P;  M.C0EN = C0EN;  M.C0U = C0U;
     M.valid = valid;  M.nUsed = nUsed;
-    M.sigEcm = sqrt(max(s2EN, 0));  M.sigNcm = M.sigEcm;
-    M.sigUcm = sqrt(max(s2U, 0));
+    s2EN(s2EN < 0) = 0;  s2U(s2U < 0) = 0;   % 음수만 클램프 — invalid(NaN)은 보존
+    M.sigEcm = sqrt(s2EN);  M.sigNcm = M.sigEcm;   % (max(NaN,0)=0 이라 NaN이 σ=0으로 둔갑하던 버그 수정)
+    M.sigUcm = sqrt(s2U);
     M.H95cm = 2*sqrt(2) * M.sigEcm;   % 수평 2DRMS (sigE = sigN 등방 가정)
     M.V95cm = 1.96 * M.sigUcm;
 end
@@ -96,8 +97,14 @@ function s2 = lsc_var(C0, sigN, Kref, Kq)
     A = C0*Kref + sigN^2 * eye(n);
     A = (A + A')/2;
     [Rc, pfail] = chol(A);
-    if pfail > 0                          % 너깃 0 + 근접 국 → 수치 특이 시 지터
-        Rc = chol(A + 1e-9*C0*eye(n));
+    jit = 1e-9;
+    while pfail > 0 && jit <= 1e-3        % 너깃 0 + 근접 국 → 수치 특이 시 지터 (10배씩 증폭)
+        warning('lsc_model:jitter', 'chol 실패 — 지터 %.0e*C0 적용 후 재시도', jit);
+        [Rc, pfail] = chol(A + jit*C0*eye(n));
+        jit = jit * 10;
+    end
+    if pfail > 0
+        error('lsc_model:cholFail', '공분산 행렬 양정치화 실패 (지터 상한 도달) — 중복 좌표 국 확인 필요');
     end
     X = Rc' \ (C0*Kq);                    % c'A^-1 c = ||Rc'^-1 c||^2
     s2 = max(C0 - sum(X.^2, 1)', 0);
@@ -111,16 +118,28 @@ function K = kernel(d, L, fam)
     end
 end
 
-function [C0EN, C0U] = resolve_C0(P, L)
+function [C0EN, C0U] = resolve_C0(P, L, fam)
+% ppm 앵커는 gauss 소거리 유도(D(d)=2C0(d/L)^2 → RMS 선형) 전용 —
+% exp(Markov)는 RMS∝√d 라 선형 기울기 앵커가 정의되지 않음 → C0 직접 지정 강제.
+    isGauss = any(strcmpi(fam, {'gauss','gaussian'}));
     if isfield(P, 'C0EN') && ~isempty(P.C0EN)
         C0EN = P.C0EN;
     else
+        assert_gauss_anchor(isGauss);
         C0EN = (0.1*P.ppmEN*L)^2 / 2;     % ppm 앵커 (1 ppm = 0.1 cm/km)
     end
     if isfield(P, 'C0U') && ~isempty(P.C0U)
         C0U = P.C0U;
     else
+        assert_gauss_anchor(isGauss);
         C0U = (0.1*P.ppmU*L)^2 / 2;
+    end
+end
+
+function assert_gauss_anchor(isGauss)
+    if ~isGauss
+        error('lsc_model:ppmAnchor', ...
+            'ppm 앵커는 gauss family 전용입니다 — exp family는 C0EN/C0U를 직접 지정하세요.');
     end
 end
 

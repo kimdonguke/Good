@@ -1,5 +1,7 @@
 function [cors_lat, cors_lon, ecef] = cors_stations()
 % CORS_STATIONS  타기관 상시관측소 38개 좌표 반환 (원시 2차/NRTK_with_CORS.m 값 그대로).
+%   [미사용/legacy] 현행 파이프라인은 load_cors_external.m(고시 xlsx 단일 출처)로 대체됨
+%   — run_plot_integrated 도 2026-07-28 부로 전환. 이력 보존용으로만 유지.
 %   [cors_lat, cors_lon, ecef] = cors_stations()
     ecef = [
         -3102269.318, 3914266.018, 3953618.697; % JEOJ

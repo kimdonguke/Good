@@ -27,16 +27,11 @@ function [fig, gx] = plot_net_map(lon, lat, isRef, ttl, figName, monOK)
     end
     hold(gx,'on');
 
-    for i = 1:numel(gray_tri)   % 회색 셀 = 감시국 미포함(무효)
-        n = CL(gray_tri(i),:);
-        geoplot(gx, geopolyshape([latR(n);latR(n(1))],[lonR(n);lonR(n(1))]), ...
-            'k','EdgeColor','k','HandleVisibility','off');
-    end
-    for i = 1:numel(red_tri)    % 빨강 셀 = 감시국 포함(감시가능)
-        n = CL(red_tri(i),:);
-        geoplot(gx, geopolyshape([latR(n);latR(n(1))],[lonR(n);lonR(n(1))]), ...
-            'EdgeColor','k','LineWidth',0.5,'FaceColor','r','FaceAlpha',0.3,'HandleVisibility','off');
-    end
+    % 셀 렌더: 색 클래스별 NaN 구분 멀티리전 geopolyshape 1개 (셀별 geoplot 반복 제거)
+    plot_cells_batch(gx, latR, lonR, CL(gray_tri,:), ...   % 회색 셀 = 감시국 미포함(무효)
+        'k','EdgeColor','k','HandleVisibility','off');
+    plot_cells_batch(gx, latR, lonR, CL(red_tri,:), ...    % 빨강 셀 = 감시국 포함(감시가능)
+        'EdgeColor','k','LineWidth',0.5,'FaceColor','r','FaceAlpha',0.3,'HandleVisibility','off');
     E = edges(DT);
     lat_e = [latR(E(:,1)), latR(E(:,2)), NaN(size(E,1),1)]';
     lon_e = [lonR(E(:,1)), lonR(E(:,2)), NaN(size(E,1),1)]';
@@ -50,4 +45,16 @@ function [fig, gx] = plot_net_map(lon, lat, isRef, ttl, figName, monOK)
     title(gx, ttl);
     geolimits(gx, [33 39], [125 131]);
     hold(gx,'off');
+end
+
+% ======================================================================
+function h = plot_cells_batch(gx, latR, lonR, CLsub, varargin)
+% 삼각형 셀 집합을 geopolyshape 객체 배열 + geoplot 1회로 렌더 (셀별 geoplot 반복 제거)
+%   주의: NaN 멀티리전 1개로 합치면 변을 공유한 삼각형들이 even-odd 규칙으로
+%   구멍 처리되는 체커보드 아티팩트 발생 — 셀별 독립 shape 배열은 상호작용 없음.
+    h = gobjects(0);
+    if isempty(CLsub); return; end
+    shp = arrayfun(@(i) geopolyshape([latR(CLsub(i,:)); latR(CLsub(i,1))], ...
+                                     [lonR(CLsub(i,:)); lonR(CLsub(i,1))]), (1:size(CLsub,1))');
+    h = geoplot(gx, shp, varargin{:});
 end

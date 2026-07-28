@@ -99,6 +99,13 @@ if isfile(qcFile)
     Q = readtable(qcFile, 'Sheet', 'Station Summary', 'VariableNamingRule', 'preserve');
     [tfq, locq] = ismember(G.station, string(Q.Station));
     qcOkDays2025(tfq) = Q.OK(locq(tfq));
+    fprintf('[QC/Summary] Station Summary %d국 매칭 / 미매칭 %d국\n', nnz(tfq), nnz(~tfq));
+    if any(~tfq & G.status == "ok")
+        % 가동국이 코드 표기 차이로 미매칭되면 qc_rules 에서 '미가동 신설국 면제'로 오분류됨
+        warning('make_stations_ngii:qcJoinMiss', ...
+            '가동국인데 Station Summary 미매칭(코드 확인 필요): %s', ...
+            strjoin(G.station(~tfq & G.status == "ok")', ', '));
+    end
 
     D = readtable(qcFile, 'Sheet', 'Daily QC', 'VariableNamingRule', 'preserve');
     ds = string(D.Station);

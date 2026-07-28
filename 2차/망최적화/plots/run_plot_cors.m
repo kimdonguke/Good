@@ -89,28 +89,19 @@ agMk  = {'v','o','d','p','h','<','>'};                             % 기관별 �
 agCol = [0.84 0.37 0.00; 0.34 0.71 0.91; 0.00 0.62 0.45; ...      % Okabe-Ito 팔레트
          0.80 0.47 0.65; 0.90 0.62 0.00; 0.00 0.45 0.70; 0.25 0.25 0.25];
 
-figure('Name','최적화 망 + 외부 상설 감시국','Color','w','Position',[80 80 960 720]);
-gx = geoaxes;
+fig = figure('Name','최적화 망 + 외부 상설 감시국','Color','w','Position',[80 80 960 720]);
+gx = geoaxes(fig);
 try
     geobasemap(gx, 'topographic');
 catch
 end
 hold(gx,'on');
-for i = 1:numel(gray_tri)
-    n = CL(gray_tri(i),:);
-    geoplot(gx, geopolyshape([latR(n);latR(n(1))],[lonR(n);lonR(n(1))]),'k','EdgeColor','k','HandleVisibility','off');
-end
-hCellMon = gobjects(0);  hCellExt = gobjects(0);
-for i = 1:numel(mon_cells)          % 감시국 유효셀 = 표준 활성화 색(빨강)
-    n = CL(mon_cells(i),:);
-    h = geoplot(gx, geopolyshape([latR(n);latR(n(1))],[lonR(n);lonR(n(1))]),'EdgeColor','k','LineWidth',0.5,'FaceColor','r','FaceAlpha',0.3,'HandleVisibility','off');
-    if i == 1; hCellMon = h; end
-end
-for i = 1:numel(extOnly_cells)      % 외부 상설감시국만 포함 셀 = 초록 (추가 감시가능)
-    n = CL(extOnly_cells(i),:);
-    h = geoplot(gx, geopolyshape([latR(n);latR(n(1))],[lonR(n);lonR(n(1))]),'EdgeColor','k','LineWidth',0.5,'FaceColor',[0 0.7 0.2],'FaceAlpha',0.3,'HandleVisibility','off');
-    if i == 1; hCellExt = h; end
-end
+% 셀 렌더: 색 클래스별 NaN 구분 멀티리전 geopolyshape 1개 (셀별 geoplot 반복 제거)
+plot_cells_batch(gx, latR, lonR, CL(gray_tri,:), 'k','EdgeColor','k','HandleVisibility','off');
+hCellMon = plot_cells_batch(gx, latR, lonR, CL(mon_cells,:), ...      % 감시국 유효셀 = 표준 활성화 색(빨강)
+    'EdgeColor','k','LineWidth',0.5,'FaceColor','r','FaceAlpha',0.3,'HandleVisibility','off');
+hCellExt = plot_cells_batch(gx, latR, lonR, CL(extOnly_cells,:), ...  % 외부 상설감시국만 포함 셀 = 초록 (추가 감시가능)
+    'EdgeColor','k','LineWidth',0.5,'FaceColor',[0 0.7 0.2],'FaceAlpha',0.3,'HandleVisibility','off');
 E = edges(DT);
 lat_e = [latR(E(:,1)), latR(E(:,2)), NaN(size(E,1),1)]';
 lon_e = [lonR(E(:,1)), lonR(E(:,2)), NaN(size(E,1),1)]';
@@ -140,5 +131,16 @@ geolimits(gx, [33 39], [125 132]); hold(gx,'off');
 figSave = fullfile(optDir,'result_fig','04_외부상설감시국');
 if ~isfolder(figSave); mkdir(figSave); end
 drawnow;
-exportgraphics(gcf, fullfile(figSave, sprintf('cors_overlay_%s.png', R.method)), 'Resolution', 200);
+exportgraphics(fig, fullfile(figSave, sprintf('cors_overlay_%s.png', R.method)), 'Resolution', 200);
 fprintf('그림 저장: %s\n', fullfile(figSave, sprintf('cors_overlay_%s.png', R.method)));
+
+% ======================================================================
+function h = plot_cells_batch(gx, latR, lonR, CLsub, varargin)
+% 삼각형 셀 집합을 geopolyshape 객체 배열 + geoplot 1회로 렌더 (셀별 geoplot 반복 제거)
+%   NaN 멀티리전 1개 합치기는 변 공유 삼각형이 even-odd 구멍 처리(체커보드) — 금지.
+    h = gobjects(0);
+    if isempty(CLsub); return; end
+    shp = arrayfun(@(i) geopolyshape([latR(CLsub(i,:)); latR(CLsub(i,1))], ...
+                                     [lonR(CLsub(i,:)); lonR(CLsub(i,1))]), (1:size(CLsub,1))');
+    h = geoplot(gx, shp, varargin{:});
+end

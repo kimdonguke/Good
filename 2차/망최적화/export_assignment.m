@@ -33,6 +33,7 @@ T = table(names, role, R.lat(:), R.lon(:), ...
 T = sortrows(T, {'role','RINEX'});
 outCsv = fullfile(thisDir, sprintf('assignment_%s.csv', R.method));
 writetable(T, outCsv);
+add_utf8_bom(outCsv);   % BOM 없으면 한국어 Windows Excel이 CP949로 해석해 한글 깨짐
 
 fprintf('\n===== [%s] 관측소 배정표 =====\n', R.method);
 fprintf('총 %d개  →  기준국 %d, 감시국(전환) %d\n', N, sum(R.isRef), sum(~R.isRef));
@@ -45,4 +46,11 @@ for i = 1:6:numel(mn)
     fprintf('  %s\n', strjoin(cellstr(mn(i:min(i+5,numel(mn))))', ', '));
 end
 fprintf('============================\n\n');
+end
+
+% ======================================================================
+function add_utf8_bom(f)
+    fid = fopen(f, 'r'); raw = fread(fid, '*uint8'); fclose(fid);
+    if numel(raw) >= 3 && isequal(raw(1:3)', uint8([239 187 191])); return; end
+    fid = fopen(f, 'w'); fwrite(fid, [uint8([239; 187; 191]); raw]); fclose(fid);
 end

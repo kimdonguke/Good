@@ -87,18 +87,27 @@ lbl{end+1} = sprintf('감시국 (%d개소)', nnz(normMon));
 hh(end+1,1) = geoplot(gx, lat(normRef), lon(normRef), 's', 'MarkerEdgeColor', 'k', ...
     'MarkerFaceColor', 'y', 'MarkerSize', 6, 'LineStyle', 'none');
 lbl{end+1} = sprintf('기준국 (%d개소)', nnz(normRef));
-hh(end+1,1) = geoplot(gx, lat(lowScoreRef), lon(lowScoreRef), 's', 'MarkerEdgeColor', 'k', ...
-    'MarkerFaceColor', [0.95 0.6 0.1], 'MarkerSize', 7, 'LineStyle', 'none');
-lbl{end+1} = sprintf('기준국·평균 품질(S=%.2f) 미만 (%d개소)', Sbar, nnz(lowScoreRef));
-hh(end+1,1) = geoplot(gx, lat(bExempt), lon(bExempt), 's', 'MarkerEdgeColor', [0.85 0.1 0.1], ...
-    'MarkerFaceColor', 'y', 'MarkerSize', 8, 'LineWidth', 1.6, 'LineStyle', 'none');
-lbl{end+1} = sprintf('기준국·외곽 예외 — QC 미달 유지 (%d개소)', nnz(bExempt));
-hh(end+1,1) = geoplot(gx, lat(forcedAvail), lon(forcedAvail), 'v', 'MarkerEdgeColor', 'k', ...
-    'MarkerFaceColor', [0.85 0.1 0.1], 'MarkerSize', 7, 'LineStyle', 'none');
-lbl{end+1} = sprintf('감시국 전환 — Availability<%.2f (%d개소)', qc.availThr, nnz(forcedAvail));
-hh(end+1,1) = geoplot(gx, lat(forcedSlps), lon(forcedSlps), 'v', 'MarkerEdgeColor', 'k', ...
-    'MarkerFaceColor', [0.8 0.45 0.65], 'MarkerSize', 7, 'LineStyle', 'none');
-lbl{end+1} = sprintf('감시국 전환 — SLPS>=%g (%d개소)', cfg.qcMaxSLPS, nnz(forcedSlps));
+% 빈 카테고리는 geoplot 이 빈 핸들을 반환해 hh(end+1,1) 대입이 실패 — any() 가드 필수
+if any(lowScoreRef)
+    hh(end+1,1) = geoplot(gx, lat(lowScoreRef), lon(lowScoreRef), 's', 'MarkerEdgeColor', 'k', ...
+        'MarkerFaceColor', [0.95 0.6 0.1], 'MarkerSize', 7, 'LineStyle', 'none');
+    lbl{end+1} = sprintf('기준국·평균 품질(S=%.2f) 미만 (%d개소)', Sbar, nnz(lowScoreRef));
+end
+if any(bExempt)
+    hh(end+1,1) = geoplot(gx, lat(bExempt), lon(bExempt), 's', 'MarkerEdgeColor', [0.85 0.1 0.1], ...
+        'MarkerFaceColor', 'y', 'MarkerSize', 8, 'LineWidth', 1.6, 'LineStyle', 'none');
+    lbl{end+1} = sprintf('기준국·외곽 예외 — QC 미달 유지 (%d개소)', nnz(bExempt));
+end
+if any(forcedAvail)
+    hh(end+1,1) = geoplot(gx, lat(forcedAvail), lon(forcedAvail), 'v', 'MarkerEdgeColor', 'k', ...
+        'MarkerFaceColor', [0.85 0.1 0.1], 'MarkerSize', 7, 'LineStyle', 'none');
+    lbl{end+1} = sprintf('감시국 전환 — Availability<%.2f (%d개소)', qc.availThr, nnz(forcedAvail));
+end
+if any(forcedSlps)
+    hh(end+1,1) = geoplot(gx, lat(forcedSlps), lon(forcedSlps), 'v', 'MarkerEdgeColor', 'k', ...
+        'MarkerFaceColor', [0.8 0.45 0.65], 'MarkerSize', 7, 'LineStyle', 'none');
+    lbl{end+1} = sprintf('감시국 전환 — SLPS>=%g (%d개소)', cfg.qcMaxSLPS, nnz(forcedSlps));
+end
 if any(noQC)
     hh(end+1,1) = geoplot(gx, lat(noQC), lon(noQC), 'd', 'MarkerEdgeColor', 'k', ...
         'MarkerFaceColor', [0.2 0.7 0.3], 'MarkerSize', 7, 'LineStyle', 'none');

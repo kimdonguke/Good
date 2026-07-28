@@ -77,11 +77,12 @@ end
 dSelf(dSelf < 1e-6) = Inf;              % 자기 자신 제거
 oldSpacingKm = min(dSelf, [], 2);
 
-%% 3) 서비스 영역 격자 비교 (이전 99국 망 vs 최적망)
+%% 3) 서비스 영역 격자 비교 (이전 전체망 vs 최적망)
 GRID_DEG = 0.025;   % 격자 간격 [deg] (약 2.8 km — 논문 0.1도의 4배 조밀)
 [glon, glat] = meshgrid(125:GRID_DEG:131, 33:GRID_DEG:39);
 glon = glon(:); glat = glat(:);
-Gold = net_geometry(lonAll, latAll, glon, glat);            % 이전 망: 99국 전부 기준국
+nOld = numel(latAll);                                        % 기존 전체망 국수 (데이터셋 기준 동적)
+Gold = net_geometry(lonAll, latAll, glon, glat);             % 이전 망: 전체국 기준국
 Gnew = net_geometry(lonAll(isRef), latAll(isRef), glon, glat);
 common = Gold.inTri & Gnew.inTri;                            % 공통 도메인
 fprintf('격자 %d점 중 공통 도메인 %d점 (이전 망 내부 %d, 최적망 내부 %d)\n', ...
@@ -99,7 +100,7 @@ w('최적망: 기준국 %d / 감시국 %d (maxBaseKm=%g, 외곽고정 %s)\n\n', 
 
 w('[1] 델로네 간선 길이 [km]\n');
 w('              간선수   평균    중앙    최대   >%gkm\n', R.maxBaseKm);
-w('  이전(99국)  %5d  %6.1f  %6.1f  %6.1f  %5d\n', numel(Gold.edgeKm), ...
+w('  이전(%d국)  %5d  %6.1f  %6.1f  %6.1f  %5d\n', nOld, numel(Gold.edgeKm), ...
     mean(Gold.edgeKm), median(Gold.edgeKm), max(Gold.edgeKm), nnz(Gold.edgeKm > R.maxBaseKm));
 w('  최적(%2d국)  %5d  %6.1f  %6.1f  %6.1f  %5d\n', nnz(isRef), numel(Gnew.edgeKm), ...
     mean(Gnew.edgeKm), median(Gnew.edgeKm), max(Gnew.edgeKm), nnz(Gnew.edgeKm > R.maxBaseKm));
@@ -171,13 +172,13 @@ stairs_cdf(Gold.nearestKm(common), 'b-'); hold on;
 stairs_cdf(Gnew.nearestKm(common), 'r-');
 grid on; xlabel('최근접 기준국 거리 [km]'); ylabel('누적 확률');
 title('(a) 최근접 기준국 거리 누적분포');
-legend({'기존 망 (99개소)', sprintf('최적화 망 (%d개소)', nnz(isRef))}, 'Location', 'northeast'); % 표준: legend northeast
+legend({sprintf('기존 망 (%d개소)', nOld), sprintf('최적화 망 (%d개소)', nnz(isRef))}, 'Location', 'northeast'); % 표준: legend northeast
 subplot(1,2,2);
 stairs_cdf(Gold.triMeanKm(common), 'b-'); hold on;
 stairs_cdf(Gnew.triMeanKm(common), 'r-');
 grid on; xlabel('소속 삼각형 평균 기선장 [km]'); ylabel('누적 확률');
 title('(b) 소속 삼각형 평균 기선장 누적분포');
-legend({'기존 망 (99개소)', sprintf('최적화 망 (%d개소)', nnz(isRef))}, 'Location', 'northeast');
+legend({sprintf('기존 망 (%d개소)', nOld), sprintf('최적화 망 (%d개소)', nnz(isRef))}, 'Location', 'northeast');
 exportgraphics(fig, fullfile(figDir, 'validation_geometry.png'), 'Resolution', 200);
 fprintf('figure 저장: validation_geometry.png\n');
 
@@ -218,7 +219,7 @@ w('95%% 변환: 수평 2DRMS = 2*sqrt(sE^2+sN^2), 수직 = 1.96*sU (논문 미�
 w('유계(목표 성능): 수평 95%% <= %g cm, 수직 95%% <= %g cm\n\n', HOR_LIM, VER_LIM);
 
 w('[1] 서비스 영역 격자 (공통 도메인 %d점, %g도 — 논문 0.1도보다 조밀)\n', nnz(common), GRID_DEG);
-w('                            이전(99국)    최적(%d국)      변화\n', nnz(isRef));
+w('                            이전(%d국)    최적(%d국)      변화\n', nOld, nnz(isRef));
 w('  만족율 수평 [%%]          %8.2f     %8.2f     %+7.2f %%p\n', SoldG.ratioH, SnewG.ratioH, SnewG.ratioH-SoldG.ratioH);
 w('  만족율 수직 [%%]          %8.2f     %8.2f     %+7.2f %%p\n', SoldG.ratioV, SnewG.ratioV, SnewG.ratioV-SoldG.ratioV);
 w('  평균 수평 95%% [cm]       %8.2f     %8.2f     %+7.2f (%.2fx)\n', SoldG.avgH, SnewG.avgH, SnewG.avgH-SoldG.avgH, SnewG.avgH/SoldG.avgH);
@@ -229,14 +230,15 @@ w('  예측 불가 지점            %8d     %8d\n', SoldG.nDomain-SoldG.nValid,
 w('  이전망 가능 -> 최적망 불가 지점: %d\n\n', nnz(common & EoldG.valid & ~EnewG.valid));
 
 w('[2] 감시국 %d점 (전환 지점 자체의 측위 성능)\n', nM);
-w('                            이전(99국)    최적(%d국)      변화\n', nnz(isRef));
+w('                            이전(%d국)    최적(%d국)      변화\n', nOld, nnz(isRef));
 w('  평균 수평 95%% [cm]       %8.2f     %8.2f     %+7.2f\n', ...
     mean(EoldM.H95cm,'omitnan'), mean(EnewM.H95cm,'omitnan'), mean(EnewM.H95cm,'omitnan')-mean(EoldM.H95cm,'omitnan'));
 w('  평균 수직 95%% [cm]       %8.2f     %8.2f     %+7.2f\n', ...
     mean(EoldM.V95cm,'omitnan'), mean(EnewM.V95cm,'omitnan'), mean(EnewM.V95cm,'omitnan')-mean(EoldM.V95cm,'omitnan'));
 w('  최대 수평 95%% [cm]       %8.2f     %8.2f\n', max(EoldM.H95cm,[],'omitnan'), max(EnewM.H95cm,[],'omitnan'));
 w('  최대 수직 95%% [cm]       %8.2f     %8.2f\n', max(EoldM.V95cm,[],'omitnan'), max(EnewM.V95cm,[],'omitnan'));
-badH = EnewM.H95cm > HOR_LIM;  badV = EnewM.V95cm > VER_LIM;
+% 예측불가(~valid, NaN)는 격자 규칙과 동일하게 '불만족'으로 집계 (NaN>lim=false 누락 방지)
+badH = EnewM.H95cm > HOR_LIM | ~EnewM.valid;  badV = EnewM.V95cm > VER_LIM | ~EnewM.valid;
 w('  유계 초과 감시국 (최적망): 수평 %d점, 수직 %d점', nnz(badH), nnz(badV));
 if any(badH | badV); w(' — %s', strjoin(namesMon(badH | badV), ', ')); end
 w('\n');
@@ -286,14 +288,14 @@ stairs_cdf(EnewG.H95cm(common & EnewG.valid), 'r-');
 xline(HOR_LIM, 'k--', sprintf('요구 성능 %g cm', HOR_LIM));
 grid on; xlabel('수평 측위오차 예측치 (95%) [cm]'); ylabel('누적 확률'); xlim([0 20]);
 title('(a) 수평 측위오차 (95%) 누적분포');
-legend({'기존 망 (99개소)', sprintf('최적화 망 (%d개소)', nnz(isRef))}, 'Location', 'southeast');
+legend({sprintf('기존 망 (%d개소)', nOld), sprintf('최적화 망 (%d개소)', nnz(isRef))}, 'Location', 'southeast');
 subplot(1,2,2);
 stairs_cdf(EoldG.V95cm(common & EoldG.valid), 'b-'); hold on;
 stairs_cdf(EnewG.V95cm(common & EnewG.valid), 'r-');
 xline(VER_LIM, 'k--', sprintf('요구 성능 %g cm', VER_LIM));
 grid on; xlabel('수직 측위오차 예측치 (95%) [cm]'); ylabel('누적 확률'); xlim([0 40]);
 title('(b) 수직 측위오차 (95%) 누적분포');
-legend({'기존 망 (99개소)', sprintf('최적화 망 (%d개소)', nnz(isRef))}, 'Location', 'southeast');
+legend({sprintf('기존 망 (%d개소)', nOld), sprintf('최적화 망 (%d개소)', nnz(isRef))}, 'Location', 'southeast');
 exportgraphics(fig2, fullfile(figDir, 'validation_error.png'), 'Resolution', 200);
 
 % ---- figure: 수평 95% 오차 지도 (성능 heat map — colorbar 필요 예외) ----

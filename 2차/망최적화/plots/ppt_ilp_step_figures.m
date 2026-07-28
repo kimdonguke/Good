@@ -131,8 +131,8 @@ function step1_filter(lon, lat, goodTris, dmaxGood, badTris, dBad, maxKm, grandP
     labelEdges(gx, lon, lat, Tb, [0.75 0 0]);
     geoplot(gx, lat, lon, 'ks', 'MarkerFaceColor','y', 'MarkerSize',5, 'DisplayName','관측소');
     legend(gx, 'Location','northeast');
-    title(gx, sprintf('Step 1. 기선장 제약(d \\leq %d km)에 의한 후보 삼각형 선별 (156,849 → %d)', ...
-        maxKm, size(goodTris,1)));
+    title(gx, sprintf('Step 1. 기선장 제약(d \\leq %d km)에 의한 후보 삼각형 선별 (%s → %s)', ...
+        maxKm, addComma(size(goodTris,1)+size(badTris,1)), addComma(size(goodTris,1))));
     saveFig(figDir, 'ilp_step1a_edge_filter.png');
 
     % (1b) 변길이 통과 후보 전체
@@ -403,4 +403,9 @@ function idx = pointsInTri(X,Y,a,b,c,tol)
     l2 = ((y3-y1).*(X-x3) + (x1-x3).*(Y-y3))/d;
     l3 = 1 - l1 - l2;
     idx = find(l1>tol & l2>tol & l3>tol);
+end
+
+function s = addComma(v)
+% 정수 천단위 구분 문자열 (타이틀용)
+    s = char(regexprep(sprintf('%d', v), '(\d)(?=(\d{3})+$)', '$1,'));
 end
